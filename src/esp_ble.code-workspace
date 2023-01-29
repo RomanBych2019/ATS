@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "C:\\PlatformIO\\Projects\\Taririvka_Nextion_ESP32"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"bitset": "cpp"
+		}
+	}
+}
