@@ -171,7 +171,7 @@ public:
 
     ~LS_BLE()
     {
-        Serial.print("\n  - Kill ble");
+        // Serial.print("\n  - Kill ble");
         BLEScan_->stop();
         BLEScan_->clearResults(); // delete results fromBLEScan buffer to release memory
     };

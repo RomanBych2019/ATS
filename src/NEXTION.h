@@ -76,9 +76,10 @@ public:
     }
 
     //  данные на экране Калибровка счетчика
-    void sendScreenCalibration(uint32_t const x0) const
+    void sendScreenCalibration(uint32_t const x0, uint32_t const n1) const
     {
         send_("calibr.x0.val", x0);
+        send_("calibr.n1.val",n1);
     }
 
     //  данные на экране Сообщения

@@ -1,17 +1,15 @@
-#include <Arduino.h>
-
 #include "main.h"
+
+#include <Arduino.h>
 #include "LS_RS485.h"
 #include "LS_ANALOG_U.h"
 #include "LS_ANALOG_F.h"
 #include "LS_BLE.h"
 
-LS_RS485 *lls_ATP;
-
 void setup()
 {
   pinMode(INDI_F_PIN_, OUTPUT);
-  digitalWrite(INDI_F_PIN_, HIGH); // индикация загрузуки
+  digitalWrite(INDI_F_PIN_, HIGH); // индикация загрузки
 
   Serial.begin(115200);
   Serial2.begin(19200);
@@ -35,7 +33,7 @@ void setup()
 
   flash.begin("eerom", false);
 
-  uint16_t k = flash.getInt("impulse_count", 1000); // чтение из eerom значения K счетчика
+  int k = flash.getInt("impulse_count", 2000); // чтение из eerom значения K счетчика
   countV = new COUNTER(k);
 
   tank = new TANK(countV);
@@ -62,12 +60,11 @@ void setup()
 
   tickerspeedPump.attach_ms(2000, flowRate);
   tickerupdateLS.attach_ms(TIME_UPDATE_LLS, updateLS);
-  // tickertest.attach_ms(10, test);
   tickermodbus.attach_ms(100, modbus);
 
   // страница  списка файлов
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(200, "text/html", "<P>ATS 2022" + listDir(SPIFFS, "/", 0) + "</p>"); });
+            { request->send(200, "text/html", "<p>ATS 2023</p><p>" + String(__DATE__) + "</p><p>" + listDir(SPIFFS, "/", 0) + "</p>"); });
 
   // скачивание лог-файла
   server.on("/log.csv", HTTP_GET, [file = "/log.csv"](AsyncWebServerRequest *request)
@@ -79,6 +76,9 @@ void setup()
 
   delay(2000);
   digitalWrite(INDI_F_PIN_, LOW);
+  pinMode(GPIO_NUM_2, OUTPUT);
+  pinMode(INIDICATE_COUNT, OUTPUT);
+  digitalWrite(INIDICATE_COUNT, LOW);
 }
 void loop()
 {
@@ -92,7 +92,8 @@ void loop()
   if (millis() > time_display_update)
   {
     updateNextion();
-    time_display_update = millis() + 300;
+    time_display_update = millis() + 333;
+    digitalWrite(GPIO_NUM_2, !digitalRead(GPIO_NUM_2));
   }
 
   switch (datemod.mode)
@@ -207,7 +208,7 @@ void updateNextion()
     break;
 
   case CALIBR:
-    display->sendScreenCalibration(countV->getVFuelCalibr());
+    display->sendScreenCalibration(countV->getVFuelCalibr(), countV->getK());
     if (pump->get() == OFF)
       display->send("calibr.bt1.val", 0);
     else
@@ -274,7 +275,7 @@ void updateNextion()
     break;
 
   case END_TAR:
-    str = "ID: " + tar->getId() + "\\rN  | LLS  | V";
+    str = "ID: " + tar->getId() + "\\rN  | LLS   | V";
     for (int i = 0; i < tar->getNRefill()->size(); i++)
     {
       uint n = tar->getNRefill()->at(i);
@@ -342,26 +343,11 @@ void modeMenu()
   datemod.id1 = 0;
   datemod.id2 = 0;
   counter_display_resetring = 0;
-  // удаление объекта lls когда это безопасно
-  // if (flag_dell_lls)
-  // {
-  //   if (lls != nullptr)
-  //   {
-  //     if (!lls->getFlagUpgate())
-  //     {
-  //       delete lls;
-  //       lls = nullptr;
-  //       flag_dell_lls = false;
-  //     }
-  //   }
-  //   else
-  //     flag_dell_lls = false;
-  // }
 
+  // сброс ДУТа BLE без номера и не найденного в поиске
   if (lls != nullptr && lls->getType() == ILEVEL_SENSOR::type::BLE_ESKORT && (lls->getNameBLE() == "" || lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND))
   {
-    delete lls;
-    lls = nullptr;
+    delete_lls();
   }
 }
 void modeEndTar()
@@ -382,14 +368,14 @@ void modePumpOut()
 // Режим Тарировка
 void modeTarring()
 {
-  if (tar->getVTank() <= tar->getVfuel()) // условие окончания тарировки
-  {
-    endTarring();
-  }
-
   if (tar->getVTankRefill() * tar->getCountReffil() <= tar->getVfuel() && tar->getCountReffil() != tar->getNumRefill()) // условие окончания очередного пролива
   {
     endRefill();
+  }
+
+  if (tar->getVTank() <= tar->getVfuel()) // условие окончания тарировки
+  {
+    endTarring();
   }
 }
 // Режим Счетчик________________________________________________________________________________________________
@@ -425,6 +411,7 @@ void proceedTarring()
   }
   else
     tar->saveResultRefuil();
+
   autostop = false;
   time_start_refill = millis();
   datemod.mode = TAR;
@@ -466,18 +453,16 @@ void endTarring()
     start_pause = millis();
     datemod.mode = PAUSE;
   }
-  else if (datemod.mode == PAUSE)
-  {
-    if (millis() - start_pause < 10000)
-      return;
 
-    if (countV->getFlowRate() > 0) // проверка, что топливо больше не поступает в бак
-    {
-      delay(1000);
+  if (datemod.mode == PAUSE)
+  {
+    if (millis() - start_pause < 1000)
       return;
-    }
+    else
+      datemod.mode = END_TAR;
   }
-  else if (datemod.mode == END_TAR) // вариант завершения работы по кнопке выход
+
+  if (datemod.mode == END_TAR) // вариант завершения работы по кнопке выход
   {
     while (countV->getFlowRate() > 0) // проверка, что топливо больше не поступает в бак
       delay(1000);
@@ -488,13 +473,9 @@ void endTarring()
       tar->saveResultRefuil();
   }
 
-  if (datemod.mode == END_TAR)
-    return;
-
   // страница окончания тарировки
-  display->send("page");
+  // display->send("page");
   display->send("page tarring_end");
-  datemod.mode = END_TAR;
 }
 
 // выход из тарировки
@@ -526,9 +507,7 @@ void updateLS()
 // вычисление скорости потока
 void flowRate()
 {
-  unsigned long tmp = millis();
-  countV->updateFlowRate(tmp - speedPumptime);
-  speedPumptime = tmp;
+  countV->updateFlowRate();
 }
 
 // ошибки ДУТ
@@ -554,14 +533,14 @@ void errors()
   }
 
   // проверка, что после 30 секунд после включения насоса скорость пролива не меньше 5л/мин
-  if (pump->get() == ON && millis() > pump->getTimeStart() + 30000)
-  {
-    if (countV->getFlowRate() < 5)
-    {
-      if (!(lls != nullptr && lls->getType() == ILEVEL_SENSOR::type::BLE_ESKORT)) // если ДУТ BLE, скорость не контролируем
-        datemod.error |= 1 << 6;
-    }
-  }
+  // if (pump->get() == ON && millis() > pump->getTimeStart() + 30000)
+  // {
+  //   if (countV->getFlowRate() < 5)
+  //   {
+  //     if (!(lls != nullptr && lls->getType() == ILEVEL_SENSOR::type::BLE_ESKORT)) // если ДУТ BLE, скорость не контролируем
+  //       datemod.error |= 1 << 6;
+  //   }
+  // }
 
   // проверка, что тарировка начинается с приемлемого уровня ДУТ
   if (datemod.mode == SETTING)
@@ -591,12 +570,14 @@ void errors()
 // функция подсчета импульсов с ДАРТ
 void rpmFun()
 {
-  if (millis() - duratiom_counter_imp > MIN_DURATION)
+  if (micros() - duratiom_counter_imp > MIN_DURATION)
   {
     countV->setKcount();
-    duratiom_counter_imp = millis();
+    digitalWrite(INIDICATE_COUNT, !digitalRead(INIDICATE_COUNT));
   }
+  duratiom_counter_imp = micros();
 }
+
 // парсинг полученых данных от дисплея Nextion
 void analyseString(String incStr)
 {
@@ -776,6 +757,27 @@ void analyseString(String incStr)
       tar->setNumRefill(timeString.toInt());
       datemod.mode = SETTING;
     }
+
+    if (incStr.substring(i).startsWith("set_dat"))
+    {
+      datemod.mode = SET_DATE;
+    }
+
+    //  Получениее времени --------------------------------------------------------------------------------------------------------------------------
+    if (incStr.substring(i).startsWith("date"))
+    {
+      timeString = incStr.substring(4 + i, incStr.length());
+      Serial.println();
+      auto index_sym = timeString.indexOf(';');
+      auto DATE = timeString.substring(0, index_sym);
+      auto TIME = timeString.substring(index_sym + 1, timeString.length());
+      // Serial.printf("Date %s Time %s\n", DATE, TIME);
+
+      // Для установки  времени
+      RtcDateTime compiled = RtcDateTime(DATE.c_str(), TIME.c_str());
+      Rtc.SetDateTime(compiled);
+    }
+
     //  Экран Тарировка--------------------------------------------------------------------------------------------------------------------------
 
     if (incStr.substring(i).startsWith("tar_start"))
@@ -830,13 +832,13 @@ void readNextion()
     inc = serialNextion.read();
     if (inc == 0x23)
       incStr = "";
-    else if (inc != '\n' && inc > 0x20 && inc < 0x7e)
+    else if (inc != '\n' && inc >= 0x20 && inc < 0x7e)
     {
       incStr += inc;
     }
     if (inc == '\n')
     {
-      Serial.printf("\nNextion: %s", incStr);
+      // Serial.printf("\nNextion: %s", incStr);
       analyseString(incStr);
       return;
     }
@@ -1157,13 +1159,30 @@ String deleteLog()
 
 void wifiInit()
 {
-  WiFi.mode(WIFI_AP);
+  WiFi.mode(WIFI_STA);
   WiFi.setHostname("ATS");
-  WiFi.softAP(SSID, PASWD, 1, 0, 1);
-  WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
-
+  const char *SSID = "Trivi Tacho";
+  const char *PASWD = "Rus__687";
+  WiFi.begin(SSID, PASWD);
+  int counter_WiFi = 0;
+  while (WiFi.status() != WL_CONNECTED && counter_WiFi < 10)
+  {
+    delay(500);
+    counter_WiFi++;
+  }
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    const char *SSID = "ATS";
+    const char *PASWD = "12_04_19";
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(SSID, PASWD, 1, 0, 2);
+    WiFi.setTxPower(WIFI_POWER_7dBm);
+  }
+  Serial.printf(__DATE__);
   Serial.printf("Mac Address:\t");
   Serial.println(WiFi.macAddress());
+  Serial.printf("IP Address:\t");
+  Serial.println(WiFi.localIP());
 }
 
 String listDir(fs::FS &fs, const char *dirname, uint8_t levels)

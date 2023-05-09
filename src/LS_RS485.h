@@ -108,7 +108,7 @@ public:
 
     const bool search() override
     {
-        Serial.print("\nSearch RS485\n");
+        // Serial.print("\nSearch RS485\n");
 
         for (uint j = 0; j < 10; j++)
         {

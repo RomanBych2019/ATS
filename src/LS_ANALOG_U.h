@@ -50,7 +50,7 @@ public:
     {
         type_ = ILEVEL_SENSOR::ANALOGE_U;
         level_start_ = MIN_ANALOGE_U_START;
-        Serial.printf("\n  - Create Analoge_U, level_start: %d", level_start_);
+        // Serial.printf("\n  - Create Analoge_U, level_start: %d", level_start_);
     }
 
     // обновление показаний
@@ -71,7 +71,7 @@ public:
         else
             level_ = constrain(map(median_, 145, 22330, 17, 1843), 0, MAX_ANALOGE_U);
 
-        Serial.printf("\n\t-Analoge_U:  %d:   %d", val_, level_);
+        // Serial.printf("\n\t-Analoge_U:  %d:   %d", val_, level_);
 
         setVLevel();
         set_error_();

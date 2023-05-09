@@ -3,7 +3,6 @@
 #include <Arduino.h>
 #include <RtcDS3231.h>
 
-// #include "Vector.h"
 #include "LEVEL_SENSOR.h"
 #include "COUNTER.h"
 #include "TANK.h"
@@ -22,10 +21,7 @@ class TARRING
 private:
     uint32_t refill_ = 0; // залито топлива в проливе
     static const int MAX_SIZE = 30;
-    // uint32_t storage[MAX_SIZE] = {};
-    // uint32_t storage_n[MAX_SIZE] = {};
 
-    // String storage_total[MAX_SIZE] = {};
     RtcDateTime t_start_; // время старта тарировки
 
     std::vector<uint32_t> v_ref_; // вектор объемов проливов
@@ -39,8 +35,6 @@ private:
     uint time_pause_ = 0; // пауза между проливами, мин
 
     uint num_reffil_ = 15;  // плановое кол-во проливов
-    // uint count_reffil_ = 0; // номер пролива
-    // uint _result_n_proliv = 1; // данные с ДУТ
 
     const int PUMPSPEED = 500; // скорость потока 10*литр/минута для вычисления времени тарировки
     COUNTER *countV_;
@@ -130,7 +124,6 @@ public:
         v_total_.push_back(str);
         v_ref_.push_back(getVfuel());
         n_ref_.push_back(n);
-        // count_reffil_++;
         // Serial.printf("\n%s", str);
     }
 // выдача результатов пролива i
@@ -210,7 +203,6 @@ public:
         refill_ = 0;
         vtank_refill_ = 0;
         time_pause_ = 0;
-        // count_reffil_ = 0;
         num_reffil_ = 0;
         tank_->reset();
         n_ref_.clear();
@@ -238,7 +230,6 @@ public:
     // выдача номера пролива
     uint getCountReffil()
     {
-        // return count_reffil_;
         return v_ref_.size();
     }
 

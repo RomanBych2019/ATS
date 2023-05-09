@@ -23,36 +23,37 @@
 #include "TANK.h"
 #include "NEXTION.h"
 #include "Out.h"
+#include "LS_RS485.h"
+
 
 #define nPRINTDEBUG
 
 #define PLATE_v1 // PLATE_v1 - плата вер1, PLATE_TEST - тестовая плата
 
-#define DATA_LENGTH 8 // длина протокола передачи LLS
+static const uint DATA_LENGTH = 8; // длина протокола передачи LLS
 
 #ifdef PLATE_TEST
-#define OUT_PUMP 12           // вывод управления насосом
-#define IN_KCOUNT 9           // вход счетчика топлива
-static const int RXDNEX = 19; //
+static const uint INDI_F_PIN_ = 2; // индикатор включения частотного ДУТа
+static const uint OUT_PUMP = 12;           // вывод управления насосом
+static const uint IN_KCOUNT = 5;           // вход счетчика топлива
+static const int RXDNEX = 22; //
 static const int TXDNEX = 23; //
 static const int RXLS = 25;
 static const int TXLS = 33;
+static const uint INIDICATE_COUNT = 13;           // вывод индикатора входных импульсов
 #endif
 
 #ifdef PLATE_v1
 static const uint INDI_F_PIN_ = 25; // индикатор включения частотного ДУТа
-#define OUT_PUMP 12           // вывод управления насосом
-#define IN_KCOUNT 5           // вход счетчика топлива
+static const uint OUT_PUMP = 12;           // вывод управления насосом
+static const uint INIDICATE_COUNT = 13;           // вывод индикатора входных импульсов
+static const uint IN_KCOUNT = 5;         // вход счетчика топлива
 static const int RXDNEX = 23; //
 static const int TXDNEX = 19; //
 static const int RXLS = 27;
 static const int TXLS = 14;
 #endif
 
-// #define I2C_SDA 13
-// #define I2C_SCL 14
-
-const int SIZE = 22;
 
 // режимы работы
 enum type
@@ -67,9 +68,11 @@ enum type
   END_TAR,
   MESSAGE,
   SEARCH_BLE,
-  PAUSE
+  PAUSE,
+  SET_DATE
 };
 
+const int SIZE = 22;
 union
 {
   struct
@@ -99,19 +102,17 @@ union
   unsigned int au16data[SIZE];
 } datemod;
 
-volatile int counter_display_resetring = 0;
-long duratiom_counter_imp = 0;
-const uint MIN_DURATION = 5;
-const uint TIME_UPDATE_LLS = 1000;
-const uint TIME_PAUSE_END_TAR = 10000; // пауза в конце тарировки для передаче данных в систему мониторинга
+int counter_display_resetring = 0;
+volatile long  duratiom_counter_imp = 0;
+const long MIN_DURATION = 500;
+const uint TIME_UPDATE_LLS = 10000;
+const uint TIME_PAUSE_END_TAR = 20000; // пауза в конце тарировки для передаче данных в систему мониторинга
 
-unsigned long time_display_update, start_pause, worktime, speedPumptime, time_start_refill;
+unsigned long time_display_update, start_pause, worktime, time_start_refill;
 bool autostop = false;
 bool flag_dell_lls = false; // флаг необходимости удаления lls
 
 const char *LOG_FILE_NAME = "log.csv";
-const char *SSID = "ATS";
-const char *PASWD = "12_04_19";
 
 AsyncWebServer server(80);
 
@@ -171,8 +172,8 @@ Ticker tickerSendNextion;   // вывод данных на дисплей Nexti
 
 // ДУТ
 ILEVEL_SENSOR *lls;
-
 // ДУТ в емкости АТП
+LS_RS485 *lls_ATP;
 
 // насос
 Out *pump;
