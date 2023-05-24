@@ -18,9 +18,6 @@ void setup()
   display = new NEXTION(serialNextion);
 
   Rtc.Begin();
-  // Для установки первоначального времени
-  // RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
-  // Rtc.SetDateTime(compiled);
 
   SPIFFS.begin(true);
 
@@ -513,17 +510,13 @@ void flowRate()
 // ошибки ДУТ
 void errors()
 {
-
   if (datemod.mode == MESSAGE || datemod.mode == END_TAR || datemod.mode == CALIBR)
     return;
-
   datemod.error = 0;
   // datemod.error &= ~((1 << 1) | (1 << 2) | (1 << 3) | (1 << 4));
-
   if (lls != nullptr && tar->getType() == tarring::AUTO)
   {
     datemod.error |= lls->getError();
-
     // проверка увеличения данных с ДУТа в проливах
     if (tar->getCountReffil() > 2)
     {
@@ -531,7 +524,6 @@ void errors()
         datemod.error |= 1 << 5;
     }
   }
-
   // проверка, что после 30 секунд после включения насоса скорость пролива не меньше 5л/мин
   // if (pump->get() == ON && millis() > pump->getTimeStart() + 30000)
   // {
@@ -541,7 +533,6 @@ void errors()
   //       datemod.error |= 1 << 6;
   //   }
   // }
-
   // проверка, что тарировка начинается с приемлемого уровня ДУТ
   if (datemod.mode == SETTING)
   {
@@ -944,6 +935,7 @@ void modbus()
   }
   datemod.id1 = tar->getId_int();
   datemod.id2 = tar->getId_int() >> 16;
+  // Serial.printf("Id: %s %d %d\n", tar->getId(), datemod.id1, datemod.id2);
   datemod.k_in_Litr = countV->getKinLitr();
   datemod.vtank = tar->getVTank() / 10;
   datemod.kRefill = tar->getNumRefill();
