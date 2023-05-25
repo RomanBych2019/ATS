@@ -976,6 +976,10 @@ void modbus()
 
 void digitalpause()
 {
+  
+  if (lls->getVecLevel()->size() < 20)
+    return;
+    
   uint32_t res = 0;
   for (auto vol : *lls->getVecLevel())
   {
