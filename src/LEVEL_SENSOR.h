@@ -7,7 +7,6 @@ class ILEVEL_SENSOR
 
 protected:
     uint16_t level_ = 0, counter_errror_ = 0;
-    static const int MAX_SIZE = 20;
     std::vector<uint16_t> v_level_; // вектор последних значений уровня
     uint8_t v_count_ = 0;
     static const uint COUNT_SEARCH_ERROR = 10; // максимальное количество ошибок
@@ -42,6 +41,8 @@ protected:
     static const uint16_t MAX_DIGITAL_B = 4095; // максимальнoе значение ДУТ BLE
 
 public:
+    static const int MAX_SIZE = 20;
+
     static const uint16_t MIN_ANALOGE_U_START = 100;     // минимальное напряжение для начала тарировки (аналог, напряжение в 0.01 В)
     static const uint16_t MIN_ANALOGE_F_START = 2000;    // минимальное напряжение для начала тарировки (аналог, частота в Гц)
     static const uint16_t MIN_ANALOGE_RS485_START = 100; // минимальное напряжение для начала тарировки (RS485)
