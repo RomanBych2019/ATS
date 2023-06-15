@@ -5,10 +5,16 @@
 #include <string>
 #include "SoftwareSerial.h"
 
+#define CMD_READ_TIMEOUT 50
+#define READ_TIMEOUT 100
+
+#define MIN_ASCII 32
+#define MAX_ASCII 255
+
 class NEXTION
 {
 private:
-    SoftwareSerial *serialNextion_;
+    SoftwareSerial *_nextionSerial;
     boolean flag = false;
     struct graph
     {
@@ -18,8 +24,35 @@ private:
         uint y_min_ = 50;
     } graph_;
 
+    bool _echo; // Response Command Show
+    // Callback Function
+    typedef void (*hmiListner)(String messege, String date, String response);
+    hmiListner listnerCallback;
+
 public:
-    NEXTION(SoftwareSerial &port) : serialNextion_(&port) {}
+    NEXTION(SoftwareSerial &port) : _nextionSerial(&port) {
+        bool _echo; // Response Command Show
+    // Callback Function
+    typedef void (*hmiListner)(String messege, String date, String response);
+    hmiListner listnerCallback;
+    }
+
+    void echoEnabled(bool echoEnabled)
+    {
+        _echo = echoEnabled;
+    }
+
+    // SET CallBack Event
+    void hmiCallBack(hmiListner callBack)
+    {
+        listnerCallback = callBack;
+    }
+
+    // Listen For incoming callback event from HMI
+    void listen()
+    {
+        handle();
+    }
 
     void send(String const &data) const
     {
@@ -164,26 +197,26 @@ private:
     // отправка на Nextion
     void send_(String const &dev) const
     {
-        serialNextion_->print(dev); // Отправляем данные dev(номер экрана, название переменной) на Nextion
+        _nextionSerial->print(dev); // Отправляем данные dev(номер экрана, название переменной) на Nextion
         sendEnd_();
     }
     void send_(String const &dev, double data) const
     {
-        serialNextion_->print(dev + "=");
-        serialNextion_->print(data, 0);
+        _nextionSerial->print(dev + "=");
+        _nextionSerial->print(data, 0);
         sendEnd_();
     }
     void send_(String const &dev, const String &data) const
     {
-        serialNextion_->print(dev + "=\"");
-        serialNextion_->print(data + "\"");
+        _nextionSerial->print(dev + "=\"");
+        _nextionSerial->print(data + "\"");
         sendEnd_();
     }
     void sendEnd_() const
     {
-        serialNextion_->write(0xff);
-        serialNextion_->write(0xff);
-        serialNextion_->write(0xff);
+        _nextionSerial->write(0xff);
+        _nextionSerial->write(0xff);
+        _nextionSerial->write(0xff);
         // delay(5);
     }
 
@@ -195,5 +228,105 @@ private:
             temp += '0';
         temp += String(date % 60, DEC);
         return temp;
+    }
+
+String readNEXTION()
+    {
+        //* This has to only be enabled for Software serial
+
+        ((SoftwareSerial *)_nextionSerial)->listen(); // Start software serial listen
+
+        String resp;
+        unsigned long startTime = millis(); // Start time for Timeout
+
+        while ((millis() - startTime < READ_TIMEOUT))
+        {
+            if (_nextionSerial->available() > 0)
+            {
+                int c = _nextionSerial->read();
+                resp.concat(" " + String(c, HEX));
+            }
+        }
+        if (_echo)
+        {
+            Serial.println("->> " + resp);
+        }
+        return resp;
+    }
+
+    String checkHex(byte currentNo)
+    {
+        if (currentNo < 10)
+        {
+            return "0" + String(currentNo, HEX);
+        }
+        return String(currentNo, HEX);
+    }
+
+    String handle()
+    {
+        String response;
+        String messege;
+        String date;
+        bool charEquals = false;
+        unsigned long startTime = millis();
+        while ((millis() - startTime < CMD_READ_TIMEOUT))
+        {
+            while (_nextionSerial->available())
+            {
+                int inc = _nextionSerial->read();
+                response.concat(checkHex(inc) + " ");
+                if (inc == 0x23)
+                {
+                    messege.clear();
+                    date.clear();
+                    // response.clear();
+                    charEquals = false;
+                }
+                else if (inc == 0x0A)
+                {
+                    if (_echo)
+                    {
+                        Serial.println("OnEvent : [ M : " + messege + " | D : " + date + " | R : " + response + " ]");
+                    }
+
+                    listnerCallback(messege, date, response);
+                    messege.clear();
+                    date.clear();
+                    charEquals = false;
+                }
+                else
+                {
+                    if (inc < MAX_ASCII && inc > MIN_ASCII)
+                    {
+                        if (!charEquals)
+                        {
+                            if (char(inc) == '=')
+                            {
+                                charEquals = true;
+                                date.clear();
+                            }
+                            else
+                            {
+                                messege += char(inc);
+                            }
+                        }
+                        else
+                        {
+                            date += char(inc);
+                        }
+                    }
+                    else
+                    {
+                        messege.clear();
+                        date.clear();
+                        charEquals = false;
+                    }
+                }
+                delay(10);
+            }
+            return response;
+        }
+        return response;
     }
 };

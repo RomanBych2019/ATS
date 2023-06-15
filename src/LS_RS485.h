@@ -80,7 +80,7 @@ public:
         for (int i = 0; i < 2; i++)
         {
             port_->write(rs485TransmitArray, 4);
-            delay(50);
+            delay(100);
             if (port_->available())
             {
                 ttydata_ = port_->readString();
@@ -98,7 +98,7 @@ public:
                     return;
                 }
             }
-            delay(100);
+            delay(50);
         }
         // level_ = 65535;
         doConnect_ = false;

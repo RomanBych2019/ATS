@@ -1,5 +1,4 @@
 #include "main.h"
-
 #include <Arduino.h>
 #include "LS_RS485.h"
 #include "LS_ANALOG_U.h"
@@ -15,10 +14,11 @@ void setup()
   Serial2.begin(19200);
   serialLS.begin(19200, SWSERIAL_8N1, RXLS, TXLS);
   serialNextion.begin(9600, SWSERIAL_8N1, RXDNEX, TXDNEX);
-  display = new NEXTION(serialNextion);
+
+  hmi.echoEnabled(false);
+  hmi.hmiCallBack(onHMIEvent);
 
   Rtc.Begin();
-
   SPIFFS.begin(true);
 
   ads.setGain(GAIN_ONE);
@@ -49,7 +49,7 @@ void setup()
   modbus_configure(&Serial2, 19200, 1, 0, SIZE, datemod.au16data);
   modbus_update_comms(19200, 1);
 
-  display->send("rest");
+  hmi.send("rest");
 
 #ifdef PRINTDEBUG
   tickerprintDebugLog.attach_ms(5000, printDebugLog);
@@ -80,12 +80,8 @@ void setup()
 void loop()
 {
   errors();
-
+  hmi.listen();
   modbus();
-
-  if (serialNextion.available())
-    readNextion();
-
   if (millis() > time_display_update)
   {
     updateNextion();
@@ -168,15 +164,15 @@ void updateNextion()
       res = String(lls_ATP->getTarLevel(), 1);
     else
       res = "---";
-    display->sendScreenMenu(datestring, countV->getKinLitr(), res, str, bt);
+    hmi.sendScreenMenu(datestring, countV->getKinLitr(), res, str, bt);
     break;
 
   case PUMPINGOUT:
-    display->sendScreenPump_Out(tar->getVfuel(), countV->getFlowRate());
+    hmi.sendScreenPump_Out(tar->getVfuel(), countV->getFlowRate());
     if (pump->get() == OFF)
-      display->send("pump_out.bt0.val", 0);
+      hmi.send("pump_out.bt0.val", 0);
     else
-      display->send("pump_out.bt0.val", 1);
+      hmi.send("pump_out.bt0.val", 1);
     break;
 
   case PUMPINGAUTO:
@@ -184,7 +180,7 @@ void updateNextion()
       str = makeLlsDateToDisplay(lls);
     else
       str = "";
-    display->sendScreenPump_Auto(tar->getVfuel(), countV->getFlowRate(), str);
+    hmi.sendScreenPump_Auto(tar->getVfuel(), countV->getFlowRate(), str);
     break;
 
   case COUNT:
@@ -198,18 +194,18 @@ void updateNextion()
       {
         res += String(tar->getRefill(i) / 10.0, 1) + " l\\r";
       }
-      display->sendScreenCounter(res);
+      hmi.sendScreenCounter(res);
       counter_display_resetring++;
     }
-    display->sendScreenCounter(tar->getVfuel() - tar->getBackRefill(), tar->getVfuel(), countV->getFlowRate(), str);
+    hmi.sendScreenCounter(tar->getVfuel() - tar->getBackRefill(), tar->getVfuel(), countV->getFlowRate(), str);
     break;
 
   case CALIBR:
-    display->sendScreenCalibration(countV->getVFuelCalibr(), countV->getK());
+    hmi.sendScreenCalibration(countV->getVFuelCalibr(), countV->getK());
     if (pump->get() == OFF)
-      display->send("calibr.bt1.val", 0);
+      hmi.send("calibr.bt1.val", 0);
     else
-      display->send("calibr.bt1.val", 1);
+      hmi.send("calibr.bt1.val", 1);
     break;
 
   case PAUSE:;
@@ -223,9 +219,9 @@ void updateNextion()
       str = "ДУТ не подключен";
     level = map(tar->getVfuel(), 0, tar->getVTank(), 0, 100);
     if (pump->get() == OFF)
-      display->send("tarring.bt0.val", 0);
+      hmi.send("tarring.bt0.val", 0);
     else
-      display->send("tarring.bt0.val", 1);
+      hmi.send("tarring.bt0.val", 1);
     uint tmp_time_pause;
     if (autostop && tar->getType() == tarring::MANUAL)
     {
@@ -235,7 +231,7 @@ void updateNextion()
     }
     else
       tmp_time_pause = tar->getTimePause() * 60;
-    display->sendScreenTarring(tar->getVfuel() - tar->getBackRefill(), tar->getVfuel(), tar->getCountReffil(), tar->getNumRefill() - tar->getCountReffil(), countV->getFlowRate(), str, tar->getTimeTarring(), level, tmp_time_pause);
+    hmi.sendScreenTarring(tar->getVfuel() - tar->getBackRefill(), tar->getVfuel(), tar->getCountReffil(), tar->getNumRefill() - tar->getCountReffil(), countV->getFlowRate(), str, tar->getTimeTarring(), level, tmp_time_pause);
     break;
 
   case MESSAGE:
@@ -268,7 +264,7 @@ void updateNextion()
       str = "Высокие начальные показания ДУТ\\rПроверте калибровку ДУТ, убедитесь в отсутствии топлива в баке";
     }
     if (str)
-      display->sendScreenMessage(str);
+      hmi.sendScreenMessage(str);
     break;
 
   case END_TAR:
@@ -294,9 +290,9 @@ void updateNextion()
     if (start_pause > millis())
       j0 = map(start_pause - millis(), TIME_PAUSE_END_TAR, 100, 100, 0);
     if (lls != nullptr)
-      display->sendScreenEnd_Tar(str, j0, tar->getVRefill(), tar->getNRefill());
+      hmi.sendScreenEnd_Tar(str, j0, tar->getVRefill(), tar->getNRefill());
     else
-      display->sendScreenEnd_Tar(str, j0);
+      hmi.sendScreenEnd_Tar(str, j0);
     break;
 
   case SETTING:
@@ -308,7 +304,7 @@ void updateNextion()
     {
       str = " не подключен";
     }
-    display->sendScreenSetting(tar->getTimeTarring(), str);
+    hmi.sendScreenSetting(tar->getTimeTarring(), str);
     break;
 
   case SEARCH_BLE:
@@ -325,7 +321,7 @@ void updateNextion()
       }
       else
         str = "";
-      display->sendScreenSearch_BLE(str);
+      hmi.sendScreenSearch_BLE(str);
     }
     break;
   default:
@@ -333,7 +329,7 @@ void updateNextion()
   }
 }
 
-// Режим Меню
+/*   ---------- Режим Меню   ---------- */
 void modeMenu()
 {
   pump->off();
@@ -347,22 +343,24 @@ void modeMenu()
     delete_lls();
   }
 }
+/*   ---------- Режим Окончание тарировки   ---------- */
 void modeEndTar()
 {
   exitTarring();
 }
+/*   ---------- Режим Настройки   ---------- */
 void modeSetting()
 {
 }
-// Режим Автоматическая выдача топлива
+/*   ---------- Режим Автоматическая выдача топлива  ---------- */
 void modePumpOut()
 {
-  if (tar->getVTank() <= tar->getVfuel()) //
+  if (tar->getVTank() <= tar->getVfuel())
   {
     pump->off();
   }
 }
-// Режим Тарировка
+/*  ----------  Режим Тарировка ---------- */
 void modeTarring()
 {
   if (tar->getVTankRefill() * tar->getCountReffil() <= tar->getVfuel() && tar->getCountReffil() != tar->getNumRefill()) // условие окончания очередного пролива
@@ -375,11 +373,11 @@ void modeTarring()
     endTarring();
   }
 }
-// Режим Счетчик________________________________________________________________________________________________
+/* ---------- Режим Счетчик ---------- */
 void modeCounter()
 {
 }
-// Режим Автоматическое выкачивание________________________________________________________________________________________________
+/*  ---------- Режим Автоматическое выкачивание  ---------- */
 void modePumpAuto()
 {
   if (millis() - worktime > 30000)
@@ -387,14 +385,14 @@ void modePumpAuto()
     if (pump->get() == ON && countV->getFlowRate() < 5) // скорость потока менее 5 л/мин
     {
       pump->off();
-      display->send("bt0.val=0");
+      hmi.send("bt0.val=0");
     }
   }
   if (pump->get() == OFF)
     worktime = millis();
 }
 
-// настройка счетчика
+/*   ---------- Режим Калибровка счетчика   ---------- */
 void modeCalibr()
 {
 }
@@ -471,8 +469,8 @@ void endTarring()
   }
 
   // страница окончания тарировки
-  // display->send("page");
-  display->send("page tarring_end");
+  // hmi.send("page");
+  hmi.send("page tarring_end");
 }
 
 // выход из тарировки
@@ -484,8 +482,8 @@ void exitTarring()
   }
   if (start_pause - millis() < 500)
   {
-    display->send("vis b1,1");
-    display->send("vis bt0,1");
+    hmi.send("vis b1,1");
+    hmi.send("vis bt0,1");
   }
 }
 
@@ -552,7 +550,7 @@ void errors()
     if (datemod.mode != MESSAGE)
     {
       pump->off();
-      display->send("page message");
+      hmi.send("page message");
       datemod.mode = MESSAGE;
     }
   }
@@ -570,272 +568,219 @@ void rpmFun()
 }
 
 // парсинг полученых данных от дисплея Nextion
-void analyseString(String incStr)
+void onHMIEvent(String messege, String data, String response)
 {
-  if (incStr == "")
+  if (messege == "")
     return;
 
   String timeString;
-  for (int i = 0; i < incStr.length(); i++)
-  {
-    //  Экран Меню--------------------------------------------------------------------------------------------------------------------------
-    if (incStr.substring(i).startsWith("menu"))
-    {
-      int k = flash.getInt("impulse_count", 2000); // чтение из eerom значения K счетчика
-      countV->setKinLitr(k);
-      datemod.mode = MENU;
-      tar->reset();
-      if (lls != nullptr)
-        if (lls->getType() != ILEVEL_SENSOR::type::BLE_ESKORT)
-          delete_lls();
-    }
 
-    if (incStr.substring(i).startsWith("au!"))
-    {
-      delete_lls();
+  //  Экран Меню--------------------------------------------------------------------------------------------------------------------------
+  if (messege == "menu")
+  {
+    int k = flash.getInt("impulse_count", 2000); // чтение из eerom значения K счетчика
+    countV->setKinLitr(k);
+    datemod.mode = MENU;
+    tar->reset();
+    if (lls != nullptr)
+      if (lls->getType() != ILEVEL_SENSOR::type::BLE_ESKORT)
+        delete_lls();
+  }
+  else if (messege == "au!")
+  {
+    delete_lls();
 #ifdef PLATE_TEST
-      lls = new LS_ANALOG_U(ads, 1);
+    lls = new LS_ANALOG_U(ads, 1);
 #endif
 #ifdef PLATE_v1
-      lls = new LS_ANALOG_U(ads, 2);
+    lls = new LS_ANALOG_U(ads, 2);
 #endif
-      lls->search();
-      tar->setType(tarring::AUTO);
-    }
+    lls->search();
+    tar->setType(tarring::AUTO);
+  }
 
-    if (incStr.substring(i).startsWith("af!"))
-    {
-      delete_lls();
-      lls = new LS_ANALOG_F();
-      lls->search();
-      tar->setType(tarring::AUTO);
-    }
+  else if (messege == "af!")
+  {
+    delete_lls();
+    lls = new LS_ANALOG_F();
+    lls->search();
+    tar->setType(tarring::AUTO);
+  }
 
-    if (incStr.substring(i).startsWith("rs485!"))
-    {
-      delete_lls();
-      lls = new LS_RS485(&serialLS);
-      lls->search();
-      tar->setType(tarring::AUTO);
-    }
+  else if (messege == "rs485!")
+  {
+    delete_lls();
+    lls = new LS_RS485(&serialLS);
+    lls->search();
+    tar->setType(tarring::AUTO);
+  }
 
-    if (incStr.substring(i).startsWith("ble!"))
-    {
-      delete_lls();
-      lls = new LS_BLE();
-      datemod.mode = SEARCH_BLE;
-    }
+  else if (messege == "ble!")
+  {
+    delete_lls();
+    lls = new LS_BLE();
+    datemod.mode = SEARCH_BLE;
+  }
 
-    if (incStr.substring(i).startsWith("no_lls!"))
-    {
-      delete_lls();
-    }
+  else if (messege == "no_lls!")
+  {
+    delete_lls();
+  }
 
-    if (incStr.substring(i).startsWith("TD_")) // получение имени ДУТа BLE Эскорт
-    {
-      timeString = incStr.substring(i, incStr.length());
-      lls->setNameBLE(timeString);
-      lls->search();
-    }
+  else if (messege.substring(0).startsWith("TD_")) // получение имени ДУТа BLE Эскорт
+  {
+    lls->setNameBLE(messege);
+    lls->search();
+  }
 
-    if (incStr.substring(i).startsWith("pump_off"))
-    {
+  else if (messege == "pump")
+  {
+    if (data == "off")
       stopPump();
-    }
-
-    if (incStr.substring(i).startsWith("pump_on"))
-    {
+    else if (data == "on")
       startPump();
-    }
+  }
 
-    if (incStr.substring(i).startsWith("p-"))
-    {
-      if (tar->getTimePause() > 1)
-        tar->setTimePause(tar->getTimePause() - 1);
-    }
+  //  Экран Автоматическая выдача топлива --------------------------------------------------------------------------------------------------------------------------
+  else if (messege == "pump_out")
+  {
+    datemod.mode = PUMPINGOUT;
+  }
+  else if (messege == "set_id")
+  {
+    datemod.mode = SETTING;
+    tank->reset();
+  }
 
-    if (incStr.substring(i).startsWith("p+"))
-      if (tar->getTimePause() < 15)
-      {
-        tar->setTimePause(tar->getTimePause() + 1);
-      }
+  else if (messege == "endtarr") // окончание тарировки
+  {
+    datemod.mode = END_TAR;
+    endTarring();
+  }
+  else if (messege == "save") // сохранение тарировки
+  {
+    saveLog();
+  }
 
-    //  Экран Автоматическая выдача топлива --------------------------------------------------------------------------------------------------------------------------
-    if (incStr.substring(i).startsWith("pump_out"))
-    {
-      datemod.mode = PUMPINGOUT;
-    }
-    if (incStr.substring(i).startsWith("set_id"))
-    {
-      datemod.mode = SETTING;
-      tank->reset();
-    }
-
-    if (incStr.substring(i).startsWith("endtarr")) // окончание тарировки
-    {
-      datemod.mode = END_TAR;
-      endTarring();
-    }
-    if (incStr.substring(i).startsWith("save")) // сохранение тарировки
-    {
-      saveLog();
-    }
-
-    //  Экран Счетчик--------------------------------------------------------------------------------------------------------------------------
-    if (incStr.substring(i).startsWith("counter"))
-    {
-      datemod.mode = COUNT;
-    }
-    if (incStr.substring(i).startsWith("resetring"))
-    {
-      if (tar->getVfuel())
-        if (lls != nullptr)
-          tar->saveResultRefuil(lls->getLevel());
-        else
-          tar->saveResultRefuil();
-      return;
-    }
-    if (incStr.substring(i).startsWith("reset"))
-    {
-      tar->reset();
-      counter_display_resetring = -1;
-    }
-    //  Экран Автоматического выкачивания-------------------------------------------------------------------------------------------------------------------
-    if (incStr.substring(i).startsWith("pump_auto"))
-    {
-      datemod.mode = PUMPINGAUTO;
-    }
-
-    //  Экран Калибровка--------------------------------------------------------------------------------------------------------------------------
-    if (incStr.substring(i).startsWith("calibr"))
-    {
-      datemod.mode = CALIBR;
-    }
-    if (incStr.substring(i).startsWith("calibr_on"))
-    {
-      countV->reset();
-    }
-    if (incStr.substring(i).startsWith("calibr_off"))
-    {
-      pump->off();
-    }
-
-    if (incStr.substring(i).startsWith("k_count")) // получение промежуточного значения k_in_Litr
-    {
-      timeString = incStr.substring(7 + i, incStr.length());
-      countV->setKinLitrCalibr(uint16_t(timeString.toDouble()));
-    }
-
-    if (incStr.substring(i).startsWith("save_k")) // получение нового К, запись в память
-    {
-      timeString = incStr.substring(6 + i, incStr.length());
-      flash.putInt("impulse_count", double(timeString.toDouble())); // запись в eerom значения K счетчика
-      countV->setKinLitr(timeString.toInt());
-    }
-    if (incStr.substring(i).startsWith("id")) // получение номера тарируемого объекта
-    {
-      timeString = incStr.substring(2 + i, incStr.length());
-      tar->setId(timeString);
-    }
-    if (incStr.substring(i).startsWith("vtank")) // получение объема бака
-    {
-      timeString = incStr.substring(5 + i, incStr.length());
-      tank->setVTank(uint16_t(timeString.toInt()) * 10);
-    }
-    if (incStr.substring(i).startsWith("krefill")) // получение количества проливов
-    {
-      timeString = incStr.substring(7 + i, incStr.length());
-      tar->setNumRefill(timeString.toInt());
-      datemod.mode = SETTING;
-    }
-
-    if (incStr.substring(i).startsWith("set_dat"))
-    {
-      datemod.mode = SET_DATE;
-    }
-
-    //  Получениее времени --------------------------------------------------------------------------------------------------------------------------
-    if (incStr.substring(i).startsWith("date"))
-    {
-      timeString = incStr.substring(4 + i, incStr.length());
-      Serial.println();
-      auto index_sym = timeString.indexOf(';');
-      auto DATE = timeString.substring(0, index_sym);
-      auto TIME = timeString.substring(index_sym + 1, timeString.length());
-      // Serial.printf("Date %s Time %s\n", DATE, TIME);
-
-      // Для установки  времени
-      RtcDateTime compiled = RtcDateTime(DATE.c_str(), TIME.c_str());
-      Rtc.SetDateTime(compiled);
-    }
-
-    //  Экран Тарировка--------------------------------------------------------------------------------------------------------------------------
-
-    if (incStr.substring(i).startsWith("tar_start"))
-    {
-      datemod.mode = TAR;
+  //  Экран Счетчик--------------------------------------------------------------------------------------------------------------------------
+  else if (messege == "counter")
+  {
+    datemod.mode = COUNT;
+  }
+  else if (messege == "resetring")
+  {
+    if (tar->getVfuel())
       if (lls != nullptr)
         tar->saveResultRefuil(lls->getLevel());
       else
         tar->saveResultRefuil();
-      tar->setTStart(Rtc.GetDateTime());
-    }
-
-    if (incStr.substring(i).startsWith("pause"))
-    {
-      if (datemod.mode != TAR && datemod.mode != PAUSE)
-        datemod.mode = SETTING;
-      timeString = incStr.substring(5 + i, incStr.length());
-      if (timeString.toInt())
-      {
-        tar->setType(tarring::MANUAL);
-        tar->setTimePause(timeString.toInt());
-      }
-      else
-      {
-        tar->setType(tarring::AUTO);
-        tar->setTimePause(0);
-      }
-    }
-    if (incStr.substring(i).startsWith("clear_err0"))
-    {
-      flag_dell_lls = true;
-    }
-    if (incStr.substring(i).startsWith("clear_err5"))
-    {
-      datemod.mode = SETTING;
-    }
-    if (incStr.substring(i).startsWith("clear_err7"))
-    {
-      datemod.mode = TAR;
-    }
+    return;
   }
-}
-
-// данные с Nextion
-void readNextion()
-{
-  char inc;
-  String incStr = "";
-
-  while (serialNextion.available())
+  else if (messege == "reset")
   {
-    inc = serialNextion.read();
-    if (inc == 0x23)
-      incStr = "";
-    else if (inc != '\n' && inc >= 0x20 && inc < 0x7e)
+    tar->reset();
+    counter_display_resetring = -1;
+  }
+  //  Экран Автоматического выкачивания-------------------------------------------------------------------------------------------------------------------
+  else if (messege == "pump_auto")
+  {
+    datemod.mode = PUMPINGAUTO;
+  }
+
+  //  Экран Калибровка--------------------------------------------------------------------------------------------------------------------------
+  else if (messege == "calibr")
+  {
+    datemod.mode = CALIBR;
+  }
+  else if (messege == "calibr_on")
+  {
+    countV->reset();
+  }
+  else if (messege == "calibr_off")
+  {
+    pump->off();
+  }
+
+  else if (messege == "k_count") // получение промежуточного значения k_in_Litr
+  {
+    countV->setKinLitrCalibr(data.toInt());
+  }
+
+  else if (messege == "save_k") // получение нового К, запись в память
+  {
+    flash.putInt("impulse_count", data.toInt()); // запись в eerom значения K счетчика
+    countV->setKinLitr(data.toInt());
+  }
+  else if (messege == "id") // получение номера тарируемого объекта
+  {
+    tar->setId(data);
+  }
+  else if (messege == "vtank") // получение объема бака
+  {
+    tank->setVTank(uint16_t(data.toInt()) * 10);
+  }
+  else if (messege == "krefill") // получение количества проливов
+  {
+    tar->setNumRefill(data.toInt());
+    datemod.mode = SETTING;
+  }
+
+  else if (messege == "set_dat")
+  {
+    datemod.mode = SET_DATE;
+  }
+
+  //  Получениее времени --------------------------------------------------------------------------------------------------------------------------
+  else if (messege == "date")
+  {
+    // Serial.println();
+    auto index_sym = data.indexOf(';');
+    auto DATE = data.substring(0, index_sym);
+    auto TIME = data.substring(index_sym + 1, timeString.length());
+    // Serial.printf("Date %s Time %s\n", DATE, TIME);
+
+    // Для установки  времени
+    RtcDateTime compiled = RtcDateTime(DATE.c_str(), TIME.c_str());
+    Rtc.SetDateTime(compiled);
+  }
+
+  //  Экран Тарировка--------------------------------------------------------------------------------------------------------------------------
+
+  else if (messege == "tar_start")
+  {
+    datemod.mode = TAR;
+    if (lls != nullptr)
+      tar->saveResultRefuil(lls->getLevel());
+    else
+      tar->saveResultRefuil();
+    tar->setTStart(Rtc.GetDateTime());
+  }
+
+  else if (messege == "pause")
+  {
+    if (datemod.mode != TAR && datemod.mode != PAUSE)
+      datemod.mode = SETTING;
+    if (data.toInt())
     {
-      incStr += inc;
+      tar->setType(tarring::MANUAL);
     }
-    if (inc == '\n')
+    else
     {
-      // Serial.printf("\nNextion: %s", incStr);
-      analyseString(incStr);
-      return;
+      tar->setType(tarring::AUTO);
     }
-    delay(5);
+    tar->setTimePause(data.toInt());
+  }
+  else if (messege == "clear_err")
+  {
+    if (data = "0")
+      flag_dell_lls = true;
+    else if (data = "5")
+      datemod.mode = SETTING;
+    else if (data = "7")
+      datemod.mode = TAR;
   }
 }
+
 #ifdef PRINTDEBUG
 void printDebugLog()
 {
@@ -976,10 +921,10 @@ void modbus()
 
 void digitalpause()
 {
-  
+
   if (lls->getVecLevel()->size() < 20)
     return;
-    
+
   uint32_t res = 0;
   for (auto vol : *lls->getVecLevel())
   {

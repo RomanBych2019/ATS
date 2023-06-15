@@ -25,7 +25,6 @@
 #include "Out.h"
 #include "LS_RS485.h"
 
-
 #define nPRINTDEBUG
 
 #define PLATE_v1 // PLATE_v1 - плата вер1, PLATE_TEST - тестовая плата
@@ -119,8 +118,6 @@ AsyncWebServer server(80);
 void rpmFun();
 void updateLS();
 
-void analyseString(String incStr);
-void readNextion();
 void modeMenu();
 void modePumpOut();
 void modeTarring();
@@ -143,6 +140,7 @@ void updateNextion();
 void startPump();
 void stopPump();
 String makeLlsDateToDisplay(ILEVEL_SENSOR *_lls);
+void onHMIEvent(String messege, String data, String response);
 void exitTarring();
 String saveLog();
 void wifiInit();
@@ -161,6 +159,7 @@ Adafruit_ADS1115 ads; /* Use this for the 16-bit version */
 Preferences flash;
 SoftwareSerial serialNextion;
 SoftwareSerial serialLS;
+
 Ticker tickermodbus;        // обновление данных modbus
 Ticker tickerupdateLS;      // обновление данных ДУТ
 Ticker tickerspeedPump;     //  вычисление скорости насоса
@@ -191,4 +190,5 @@ TANK *tank;
 TARRING *tar;
 
 // дисплей
-NEXTION *display;
+// NEXTION *display;
+NEXTION hmi(serialNextion);
