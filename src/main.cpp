@@ -1042,6 +1042,7 @@ String makeLlsDateToDisplay(ILEVEL_SENSOR *_lls)
     else
       return "BLE" + ch + "RSSI: " + String(_lls->getRSSI()) + ch + "N= " + String(_lls->getLevel());
   }
+#ifdef verAnalogInput
   else if (_lls->getType() == ILEVEL_SENSOR::ANALOGE_U)
   {
     if (lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
@@ -1055,6 +1056,7 @@ String makeLlsDateToDisplay(ILEVEL_SENSOR *_lls)
       return "Analoge F не найден!";
     return "Analoge F" + ch + "F= " + String(_lls->getLevel()) + " Hz";
   }
+#endif
   return {};
 }
 

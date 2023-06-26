@@ -31,7 +31,7 @@
 
 #define PLATE_v1 // PLATE_v1 - плата вер1, PLATE_TEST - тестовая плата
 
-static const uint DATA_LENGTH = 8; // длина протокола передачи LLS
+// static const uint DATA_LENGTH = 8; // длина протокола передачи LLS
 
 #ifdef PLATE_TEST
 static const uint INDI_F_PIN_ = 2; // индикатор включения частотного ДУТа
