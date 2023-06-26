@@ -18,11 +18,12 @@ void setup()
   display = new NEXTION(serialNextion);
 
   Rtc.Begin();
-
   SPIFFS.begin(true);
 
+#ifdef verAnalogInput
   ads.setGain(GAIN_ONE);
   ads.begin();
+#endif
 
   wifiInit();
   server.begin();
@@ -41,7 +42,10 @@ void setup()
 
   datemod.mode = MENU;
   lls = nullptr;
+
+#ifdef verATP
   lls_ATP = new LS_RS485(&serialLS, 100);
+#endif
 
   pinMode(IN_KCOUNT, INPUT_PULLUP);           // инициализация входа импульсов ДАРТ
   attachInterrupt(IN_KCOUNT, rpmFun, CHANGE); // функция прерывания
@@ -164,10 +168,14 @@ void updateNextion()
       str = "";
     if (lls != nullptr)
       bt = static_cast<int>(lls->getType());
+
+#ifdef verATP
     if (lls_ATP->getError() == ILEVEL_SENSOR::NO_ERROR)
       res = String(lls_ATP->getTarLevel(), 1);
     else
       res = "---";
+#endif
+
     display->sendScreenMenu(datestring, countV->getKinLitr(), res, str, bt);
     break;
 
@@ -492,7 +500,10 @@ void exitTarring()
 // считывание данных с ДУТ
 void updateLS()
 {
+#ifdef verATP
   lls_ATP->update();
+#endif
+
   if (datemod.mode != MENU && datemod.mode != CALIBR && datemod.mode != PUMPINGOUT)
     if (lls != nullptr)
     {
@@ -592,23 +603,22 @@ void analyseString(String incStr)
 
     if (incStr.substring(i).startsWith("au!"))
     {
+#ifdef verAnalogInput
       delete_lls();
-#ifdef PLATE_TEST
-      lls = new LS_ANALOG_U(ads, 1);
-#endif
-#ifdef PLATE_v1
       lls = new LS_ANALOG_U(ads, 2);
-#endif
       lls->search();
       tar->setType(tarring::AUTO);
+#endif
     }
 
     if (incStr.substring(i).startsWith("af!"))
     {
+#ifdef verAnalogInput
       delete_lls();
       lls = new LS_ANALOG_F();
       lls->search();
       tar->setType(tarring::AUTO);
+#endif
     }
 
     if (incStr.substring(i).startsWith("rs485!"))
@@ -971,15 +981,18 @@ void modbus()
     datemod.k_adress = 0;
     datemod.rssi = 0;
   }
+
+#ifdef verATP
   datemod.llsATP = lls_ATP->getLevel();
+#endif
 }
 
 void digitalpause()
 {
-  
+
   if (lls->getVecLevel()->size() < 20)
     return;
-    
+
   uint32_t res = 0;
   for (auto vol : *lls->getVecLevel())
   {

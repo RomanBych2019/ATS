@@ -25,8 +25,9 @@
 #include "Out.h"
 #include "LS_RS485.h"
 
-
 #define nPRINTDEBUG
+#define verATP
+#define verAnalogInput
 
 #define PLATE_v1 // PLATE_v1 - плата вер1, PLATE_TEST - тестовая плата
 
@@ -34,26 +35,25 @@ static const uint DATA_LENGTH = 8; // длина протокола переда
 
 #ifdef PLATE_TEST
 static const uint INDI_F_PIN_ = 2; // индикатор включения частотного ДУТа
-static const uint OUT_PUMP = 12;           // вывод управления насосом
-static const uint IN_KCOUNT = 5;           // вход счетчика топлива
-static const int RXDNEX = 22; //
-static const int TXDNEX = 23; //
+static const uint OUT_PUMP = 12;   // вывод управления насосом
+static const uint IN_KCOUNT = 5;   // вход счетчика топлива
+static const int RXDNEX = 22;      //
+static const int TXDNEX = 23;      //
 static const int RXLS = 25;
 static const int TXLS = 33;
-static const uint INIDICATE_COUNT = 13;           // вывод индикатора входных импульсов
+static const uint INIDICATE_COUNT = 13; // вывод индикатора входных импульсов
 #endif
 
 #ifdef PLATE_v1
-static const uint INDI_F_PIN_ = 25; // индикатор включения частотного ДУТа
-static const uint OUT_PUMP = 12;           // вывод управления насосом
-static const uint INIDICATE_COUNT = 13;           // вывод индикатора входных импульсов
-static const uint IN_KCOUNT = 5;         // вход счетчика топлива
-static const int RXDNEX = 23; //
-static const int TXDNEX = 19; //
+static const uint INDI_F_PIN_ = 25;     // индикатор включения частотного ДУТа
+static const uint OUT_PUMP = 12;        // вывод управления насосом
+static const uint INIDICATE_COUNT = 13; // вывод индикатора входных импульсов
+static const uint IN_KCOUNT = 5;        // вход счетчика топлива
+static const int RXDNEX = 23;           //
+static const int TXDNEX = 19;           //
 static const int RXLS = 27;
 static const int TXLS = 14;
 #endif
-
 
 // режимы работы
 enum type
@@ -103,7 +103,7 @@ union
 } datemod;
 
 int counter_display_resetring = 0;
-volatile long  duratiom_counter_imp = 0;
+volatile long duratiom_counter_imp = 0;
 const long MIN_DURATION = 500;
 const uint TIME_UPDATE_LLS = 10000;
 const uint TIME_PAUSE_END_TAR = 20000; // пауза в конце тарировки для передаче данных в систему мониторинга
@@ -172,8 +172,11 @@ Ticker tickerSendNextion;   // вывод данных на дисплей Nexti
 
 // ДУТ
 ILEVEL_SENSOR *lls;
+
+#ifdef verATP
 // ДУТ в емкости АТП
 LS_RS485 *lls_ATP;
+#endif
 
 // насос
 Out *pump;
