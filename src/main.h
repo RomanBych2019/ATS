@@ -1,58 +1,47 @@
 #pragma once
 
+#define N0_PRINTDEBUG
+#define NO_verATP
+#define NO_verAnalogInput
+
 #include <Arduino.h>
 #include <Wire.h>
 #include <SPI.h>
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <AsyncElegantOTA.h>
-
+// #include <AsyncElegantOTA.h>
+#include <freertos/task.h>
+#include <FreeRTOSConfig.h>
 #include <SPIFFS.h>
 #include <SPIFFSEditor.h>
 #include "Preferences.h"
 #include "SoftwareSerial.h"
-#include <ESP32Ticker.h>
 #include <SimpleModbusSlave_DUE.h>
-#include <string>
 #include <RtcDS3231.h>
+#ifdef verAnalogInput
 #include <Adafruit_ADS1X15.h>
-
+#endif
 #include "COUNTER.h"
 #include "TARRING.h"
 #include "TANK.h"
 #include "NEXTION.h"
 #include "Out.h"
+#ifdef verATP
 #include "LS_RS485.h"
-
-#define nPRINTDEBUG
-#define verATP
-#define verAnalogInput
-
-#define PLATE_v1 // PLATE_v1 - плата вер1, PLATE_TEST - тестовая плата
-
-// static const uint DATA_LENGTH = 8; // длина протокола передачи LLS
-
-#ifdef PLATE_TEST
-static const uint INDI_F_PIN_ = 2; // индикатор включения частотного ДУТа
-static const uint OUT_PUMP = 12;   // вывод управления насосом
-static const uint IN_KCOUNT = 5;   // вход счетчика топлива
-static const int RXDNEX = 22;      //
-static const int TXDNEX = 23;      //
-static const int RXLS = 25;
-static const int TXLS = 33;
-static const uint INIDICATE_COUNT = 13; // вывод индикатора входных импульсов
 #endif
 
+#define PLATE_v1 // PLATE_v1 - плата вер1
+
 #ifdef PLATE_v1
-static const uint INDI_F_PIN_ = 25;     // индикатор включения частотного ДУТа
-static const uint OUT_PUMP = 12;        // вывод управления насосом
-static const uint INIDICATE_COUNT = 13; // вывод индикатора входных импульсов
-static const uint IN_KCOUNT = 5;        // вход счетчика топлива
-static const int RXDNEX = 23;           //
-static const int TXDNEX = 19;           //
-static const int RXLS = 27;
-static const int TXLS = 14;
+static const uint8_t INDI_F_PIN_ = GPIO_NUM_25;     // индикатор включения частотного ДУТа
+static const uint8_t OUT_PUMP = GPIO_NUM_12;        // вывод управления насосом
+static const uint8_t INIDICATE_COUNT = GPIO_NUM_13; // вывод индикатора входных импульсов
+static const uint8_t IN_KCOUNT = GPIO_NUM_5;        // вход счетчика топлива
+static const uint8_t RXDNEX = GPIO_NUM_23;          //
+static const uint8_t TXDNEX = GPIO_NUM_19;          //
+static const uint8_t RXLS = GPIO_NUM_27;
+static const uint8_t TXLS = GPIO_NUM_14;
 #endif
 
 // режимы работы
@@ -72,7 +61,7 @@ enum type
   SET_DATE
 };
 
-const int SIZE = 22;
+const uint8_t SIZE = 22;
 union
 {
   struct
@@ -105,10 +94,12 @@ union
 int counter_display_resetring = 0;
 volatile long duratiom_counter_imp = 0;
 const long MIN_DURATION = 500;
-const uint TIME_UPDATE_LLS = 10000;
-const uint TIME_PAUSE_END_TAR = 20000; // пауза в конце тарировки для передаче данных в систему мониторинга
+const uint16_t TIME_UPDATE_LLS = 10000;
+const uint16_t TIME_UPDATE_HMI = 200;         // период обновления данных на дисплее, мсек
+const uint16_t TIME_UPDATE_SPEED_PUMP = 2000; // период обновления скорости потока
+const uint16_t TIME_PAUSE_END_TAR = 20000;    // пауза в конце тарировки для передаче данных в систему мониторинга
 
-unsigned long time_display_update, start_pause, worktime, time_start_refill;
+unsigned long start_pause, worktime, time_start_refill;
 bool autostop = false;
 bool flag_dell_lls = false; // флаг необходимости удаления lls
 
@@ -117,10 +108,6 @@ const char *LOG_FILE_NAME = "log.csv";
 AsyncWebServer server(80);
 
 void rpmFun();
-void updateLS();
-
-void analyseString(String incStr);
-void readNextion();
 void modeMenu();
 void modePumpOut();
 void modeTarring();
@@ -130,16 +117,11 @@ void modeCalibr();
 void endTarring();
 void endRefill();
 void proceedTarring();
-#ifdef PRINTDEBUG
-void printDebugLog();
-#endif
 void modeSetting();
-void flowRate();
 void modeEndTar();
 void errors();
 void modbus();
 void digitalpause();
-void updateNextion();
 void startPump();
 void stopPump();
 String makeLlsDateToDisplay(ILEVEL_SENSOR *_lls);
@@ -155,19 +137,21 @@ String deleteLog();
 String listDir(fs::FS &fs, const char *dirname, uint8_t levels);
 void getDataLog(AsyncWebServerRequest *request, String file);
 
-RtcDS3231<TwoWire> Rtc(Wire);
-Adafruit_ADS1115 ads; /* Use this for the 16-bit version */
+void updateLS(void *pvParameters);
+void sendNextion(void *pvParameters);
+void readNextion(void *pvParameters);
+void calculate_speedPump(void *pvParameters);
+void onHMIEvent(String messege, String data, String response);
+void printDebugLog(void *pvParameters);
 
+RtcDS3231<TwoWire> Rtc(Wire);
+#ifdef verAnalogInput
+Adafruit_ADS1115 ads; /* Use this for the 16-bit version */
+#endif
 Preferences flash;
 SoftwareSerial serialNextion;
 SoftwareSerial serialLS;
-Ticker tickermodbus;        // обновление данных modbus
-Ticker tickerupdateLS;      // обновление данных ДУТ
-Ticker tickerspeedPump;     //  вычисление скорости насоса
-Ticker tickerprintDebugLog; // вывод лога в сериал-порт
-Ticker tickerSendNextion;   // вывод данных на дисплей Nextion
 
-// Ticker tickertest; //
 // void test();
 
 // ДУТ
@@ -194,4 +178,4 @@ TANK *tank;
 TARRING *tar;
 
 // дисплей
-NEXTION *display;
+NEXTION hmi(serialNextion);

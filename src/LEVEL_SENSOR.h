@@ -9,7 +9,7 @@ protected:
     uint16_t level_ = 0, counter_errror_ = 0;
     std::vector<uint16_t> v_level_; // вектор последних значений уровня
     uint8_t v_count_ = 0;
-    static const uint COUNT_SEARCH_ERROR = 10; // максимальное количество ошибок
+    static const uint8_t COUNT_SEARCH_ERROR = 10; // максимальное количество ошибок
     bool flag_upgate_ = false;                 // флаг нахождения в функции update
     uint16_t level_start_;
 
@@ -19,10 +19,10 @@ protected:
         v_level_.reserve(MAX_SIZE);
     }
 
-    int median_of_3(int a, int b, int c) // медианное усреднение
+    uint16_t median_of_3(uint16_t a, uint16_t b, uint16_t c) // медианное усреднение
     {
-        int the_max_ = max(max(a, b), c);
-        int the_min_ = min(min(a, b), c);
+        uint16_t the_max_ = max(max(a, b), c);
+        uint16_t the_min_ = min(min(a, b), c);
         return the_max_ ^ the_min_ ^ a ^ b ^ c;
     }
 
@@ -147,7 +147,7 @@ public:
         }
     }
 
-    virtual const int getRSSI() const
+    virtual const uint16_t getRSSI() const
     {
         return {};
     }

@@ -32,7 +32,7 @@ private:
     uint32_t vtank_refill_ = 0; // объем пролива
     String id_ = "";             // id номер тарируемого объкта
 
-    uint time_pause_ = 0; // пауза между проливами, мин
+    uint time_pause_ = 3; // пауза между проливами, мин
 
     uint num_reffil_ = 15;  // плановое кол-во проливов
 
@@ -117,6 +117,7 @@ public:
         }
         return result.toInt();
     }
+
 //запись результатов пролива
     void saveResultRefuil(uint16_t n = 0)
     {
@@ -124,8 +125,9 @@ public:
         v_total_.push_back(str);
         v_ref_.push_back(getVfuel());
         n_ref_.push_back(n);
-        // Serial.printf("\n%s", str);
+        Serial.printf("\n%s\n", str);
     }
+
 // выдача результатов пролива i
     String getResultRefill(int i)
     {

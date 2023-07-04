@@ -6,10 +6,11 @@
 class LS_RS485 : public ILEVEL_SENSOR
 {
 private:
-    int netadress_;
+    uint8_t netadress_;
     String ttydata_;
     SoftwareSerial *port_;
     boolean doConnect_ = false;
+        std::vector<byte> bufferRead485{};
 
     static const uint8_t PROGMEM DSCRC_TABLE[];
 
@@ -73,24 +74,27 @@ public:
             return;
         flag_upgate_ = true;
         // Serial.printf("\nUpdate RS485 adr: %d", netadress_);
-        byte bufferRead485[9] = {0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x00, 0x00};
+        bufferRead485.clear();
         byte rs485TransmitArray[] = {0x31, 0x00, 0x06, 0x00};
         rs485TransmitArray[1] = netadress_;
         rs485TransmitArray[3] = crc8(rs485TransmitArray, 3);
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < 3; i++)
         {
             port_->write(rs485TransmitArray, 4);
-            delay(50);
-            if (port_->available())
+            delay(100);
+            while (port_->available())
             {
-                ttydata_ = port_->readString();
-                for (int i = 0; i < 9; i++)
+                byte b = port_->read();
+                bufferRead485.push_back(b);
+                Serial.print(b + " | ");
+                delay(5);
+            }
+            Serial.println(i);
+            if (bufferRead485.size() == 9)
+            {
+                if (bufferRead485[0] == 0x3E && bufferRead485[1] == netadress_ && bufferRead485[8] == crc8(bufferRead485))
                 {
-                    bufferRead485[i] = ttydata_.charAt(i);
-                }
-                if (ttydata_.charAt(0) == 0x3E && ttydata_.charAt(1) == netadress_ && ttydata_.charAt(8) == crc8(bufferRead485, 8))
-                {
-                    level_ = ttydata_[5] << 8 | ttydata_[4];
+                    level_ = bufferRead485[5] << 8 | bufferRead485[4];
                     setVLevel();
                     set_error_();
                     flag_upgate_ = false;
@@ -98,7 +102,8 @@ public:
                     return;
                 }
             }
-            delay(100);
+            bufferRead485.clear();
+            delay(50);
         }
         // level_ = 65535;
         doConnect_ = false;
@@ -153,6 +158,16 @@ private:
     uint8_t crc8(uint8_t *addr, uint8_t len)
     {
         uint8_t crc = 0;
+        while (len--)
+            crc = pgm_read_byte(DSCRC_TABLE + (crc ^ *addr++));
+        return crc;
+    }
+    // функция вычисления контрольной суммы
+    uint8_t crc8(std::vector<uint8_t> &buf)
+    {
+        uint8_t crc = 0;
+        uint8_t len = buf.size();
+        auto addr = buf.begin();
         while (len--)
             crc = pgm_read_byte(DSCRC_TABLE + (crc ^ *addr++));
         return crc;

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "NimBLEDevice.h"
-
 #include "LEVEL_SENSOR.h"
 
 static String nameBLE_ls = {};
@@ -29,7 +28,7 @@ class LS_BLE : public ILEVEL_SENSOR
 public:
 private:
     uint16_t dataBLE_[4] = {};
-    int RSSI_ = {};
+    uint16_t RSSI_ = {};
     BLEScan *BLEScan_;
     boolean _doConnect = false;
     String ManufacturerData = {};
@@ -124,7 +123,7 @@ public:
         return result.toInt();
     }
 
-    const int getRSSI() const override
+    const uint16_t getRSSI() const override
     {
         return RSSI_;
     }
