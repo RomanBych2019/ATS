@@ -15,7 +15,7 @@ void setup()
 
   Serial.begin(115200);
   Serial2.begin(19200);
-  serialLS.begin(19200, SWSERIAL_8N1, RXLS, TXLS);
+  serialLS.begin(19200, SERIAL_8N1, RXLS, TXLS);
   serialNextion.begin(19200, SWSERIAL_8N1, RXDNEX, TXDNEX);
 
   hmi.echoEnabled(true);
@@ -563,6 +563,7 @@ void errors()
 {
   if (datemod.mode == MESSAGE || datemod.mode == END_TAR || datemod.mode == CALIBR)
     return;
+
   int error = 0;
   if (lls != nullptr && tar->getType() == tarring::AUTO)
   {
@@ -629,6 +630,7 @@ void onHMIEvent(String messege, String data, String response)
       int k = flash.getInt("impulse_count", 2000); // чтение из eerom значения K счетчика
       countV->setKinLitr(k);
       datemod.mode = MENU;
+      datemod.error = 0;
       if (lls != nullptr)
         if (lls->getType() != ILEVEL_SENSOR::type::BLE_ESKORT)
           delete_lls();
@@ -660,6 +662,8 @@ void onHMIEvent(String messege, String data, String response)
       lls = new LS_RS485(&serialLS);
       if (lls->search())
         tar->setType(tarring::AUTO);
+      // else
+      //   delete_lls();
     }
 
     if (messege == "ble!")
@@ -794,7 +798,7 @@ void onHMIEvent(String messege, String data, String response)
       auto index_sym = data.indexOf(';');
       auto DATE = data.substring(0, index_sym);
       auto TIME = data.substring(index_sym + 1, data.length());
-      // Serial.print"Date %s Time %s\n", DATE, TIME);
+      Serial.printf("Date %s Time %s\n", DATE, TIME);
 
       // Для установки  времени
       RtcDateTime compiled = RtcDateTime(DATE.c_str(), TIME.c_str());

@@ -12,7 +12,7 @@ class AdvertisedDeviceCallbacks : public NimBLEAdvertisedDeviceCallbacks
 {
     void onResult(NimBLEAdvertisedDevice *advertisedDevice)
     {
-        // Serial.printf("\nAdvertised Device found: %s", advertisedDevice->toString().c_str());
+        Serial.printf("\nAdvertised Device found: %s", advertisedDevice->toString().c_str());
         if (advertisedDevice->getName() == nameBLE_ls.c_str())
         {
             doConnect_ = true;
@@ -57,14 +57,6 @@ private:
             if (counter_errror_ > COUNT_SEARCH_ERROR) // ДУТ не найден
                 error_ = error::LOST;
         }
-
-        // if (level_ == 65535) // ДУТ потерян
-        // {
-        //     counter_errror_++;
-        //     if (counter_errror_ > COUNT_SEARCH_ERROR)
-        //         error_ = error::LOST;
-        // }
-        // else
         if (level_ < MIN_DIGITAL_B)
         {
             counter_errror_++;
@@ -87,7 +79,7 @@ private:
 public:
     LS_BLE()
     {
-        // Serial.print("\n  - Create BLE");
+        Serial.print("\n  - Create BLE\n");
         type_ = ILEVEL_SENSOR::BLE_ESKORT;
         level_start_ = MIN_ANALOGE_BLE_START;
         error_ = error::NO_ERROR;
@@ -170,7 +162,7 @@ public:
 
     ~LS_BLE()
     {
-        // Serial.print("\n  - Kill ble");
+        Serial.print("\n  - Kill ble\n");
         BLEScan_->stop();
         BLEScan_->clearResults(); // delete results fromBLEScan buffer to release memory
     };

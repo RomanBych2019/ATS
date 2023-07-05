@@ -150,7 +150,8 @@ Adafruit_ADS1115 ads; /* Use this for the 16-bit version */
 #endif
 Preferences flash;
 SoftwareSerial serialNextion;
-SoftwareSerial serialLS;
+// SoftwareSerial serialLS;
+#define serialLS Serial1
 
 // void test();
 

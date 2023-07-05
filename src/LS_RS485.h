@@ -2,15 +2,15 @@
 
 #include <Arduino.h>
 #include "LEVEL_SENSOR.h"
+#include <map>
 
 class LS_RS485 : public ILEVEL_SENSOR
 {
 private:
     uint8_t netadress_;
     String ttydata_;
-    SoftwareSerial *port_;
+    HardwareSerial *port_ = nullptr;
     boolean doConnect_ = false;
-        std::vector<byte> bufferRead485{};
 
     static const uint8_t PROGMEM DSCRC_TABLE[];
 
@@ -51,10 +51,10 @@ private:
 
 public:
     LS_RS485() {}
-    LS_RS485(SoftwareSerial *port, uint16_t netadress = 0x01) : netadress_(netadress)
+    LS_RS485(HardwareSerial *port, uint16_t netadress = 0x01) : port_(port), netadress_(netadress)
     {
-        // Serial.print("\n  - Create rs485");
-        port_ = port;
+        Serial.print("\n  - Create rs485 \n");
+
         type_ = ILEVEL_SENSOR::RS485;
         level_start_ = MIN_ANALOGE_RS485_START;
     }
@@ -73,9 +73,9 @@ public:
         if (netadress_ == 0xFF)
             return;
         flag_upgate_ = true;
-        // Serial.printf("\nUpdate RS485 adr: %d", netadress_);
-        bufferRead485.clear();
-        byte rs485TransmitArray[] = {0x31, 0x00, 0x06, 0x00};
+        // Serial.printf("\nUpdate RS485 adr: %d\n", netadress_);
+        std::vector<uint8_t> bufferRead485{};
+        uint8_t rs485TransmitArray[] = {0x31, 0x00, 0x06, 0x00};
         rs485TransmitArray[1] = netadress_;
         rs485TransmitArray[3] = crc8(rs485TransmitArray, 3);
         for (int i = 0; i < 3; i++)
@@ -84,15 +84,12 @@ public:
             delay(100);
             while (port_->available())
             {
-                byte b = port_->read();
-                bufferRead485.push_back(b);
-                Serial.print(b + " | ");
+                bufferRead485.push_back(port_->read());
                 delay(5);
             }
-            Serial.println(i);
-            if (bufferRead485.size() == 9)
+            if (bufferRead485.size() >= 9)
             {
-                if (bufferRead485[0] == 0x3E && bufferRead485[1] == netadress_ && bufferRead485[8] == crc8(bufferRead485))
+                if (bufferRead485[0] == 0x3E && bufferRead485[1] == netadress_ && !crc8(bufferRead485))
                 {
                     level_ = bufferRead485[5] << 8 | bufferRead485[4];
                     setVLevel();
@@ -114,7 +111,7 @@ public:
     const bool search() override
     {
         // Serial.print("\nSearch RS485\n");
-
+        flag_upgate_ = true;
         for (uint j = 0; j < 10; j++)
         {
             netadress_ = j;
@@ -128,29 +125,17 @@ public:
         error_ = error::NOT_FOUND;
         return {};
     }
+
     float getTarLevel()
     {
-        if (level_ == 0)
-            return 0;
-        if (level_ < 8)
-            return level_ * 0.31 + 1.51;
-        else if (level_ < 124)
-            return level_ * 0.23 + 11.49;
-        else if (level_ < 298)
-            return level_ * 0.25 + 5.03;
-        else if (level_ < 457)
-            return level_ * 0.23 + 16.72;
-        else if (level_ < 634)
-            return level_ * 0.23 + 14.25;
-        else if (level_ < 808)
-            return level_ * 0.23 + 10.99;
-        else if (level_ < 979)
-            return level_ * 0.25 - 0.24;
-        else if (level_ < 1142)
-            return level_ * 0.25 - 9.11;
-        else if (level_ < 1300)
-            return level_ * 0.25 - 7.40;
-        return map(level_, 0, 4000, 0, 1000);
+        std::map<uint16_t, float> tabl{{0, 0.0}, {8, 4.0}, {124, 40.0}, {298, 80.0}, {457, 129.0}, {634, 160.0}, {808, 200.0}, {979, 240.0}, {1142, 280.0}, {1230, 320.0}, {4000, 1000.0}};
+
+        auto it_end = tabl.upper_bound(level_);
+        auto it_begin = it_end;
+        it_begin--;
+        if (it_end == tabl.end())
+            return it_begin->second;
+        return map(it_begin->first, it_end->first, level_, it_begin->second, it_end->second);
     }
 
 private:
@@ -174,8 +159,9 @@ private:
     }
 
 public:
-    ~LS_RS485(){
-        // Serial.print("\n  - Kill rs485");
+    ~LS_RS485()
+    {
+        Serial.print("\n  - Kill rs485\n");
     };
 };
 const uint8_t LS_RS485::DSCRC_TABLE[] = {

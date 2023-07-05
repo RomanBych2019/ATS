@@ -10,7 +10,7 @@ protected:
     std::vector<uint16_t> v_level_; // вектор последних значений уровня
     uint8_t v_count_ = 0;
     static const uint8_t COUNT_SEARCH_ERROR = 10; // максимальное количество ошибок
-    bool flag_upgate_ = false;                 // флаг нахождения в функции update
+    bool flag_upgate_ = false;                    // флаг нахождения в функции update
     uint16_t level_start_;
 
     ILEVEL_SENSOR()
@@ -31,7 +31,7 @@ protected:
     static const uint16_t MIN_ANALOGE_U = 8;    // минимальное напряжение на рабочем ДУТ (аналог, напряжение в 0.01 В)
     static const uint16_t MAX_ANALOGE_U = 2000; // максимальное напряжение на рабочем ДУТ (аналог, напряжение в 0.01 В)
 
-    static const uint16_t MIN_ANALOGE_F = 20;  // минимальная частота на рабочем ДУТ (аналог, частота в Гц)
+    static const uint16_t MIN_ANALOGE_F = 20;   // минимальная частота на рабочем ДУТ (аналог, частота в Гц)
     static const uint16_t MAX_ANALOGE_F = 3000; // максимальная частота на рабочем ДУТ (аналог, частота в Гц)
 
     static const uint16_t MIN_DIGITAL_N = 1;    // минимальное значение ДУТ RS485
@@ -46,15 +46,15 @@ public:
     static const uint16_t MIN_ANALOGE_U_START = 100;     // минимальное напряжение для начала тарировки (аналог, напряжение в 0.01 В)
     static const uint16_t MIN_ANALOGE_F_START = 2000;    // минимальное напряжение для начала тарировки (аналог, частота в Гц)
     static const uint16_t MIN_ANALOGE_RS485_START = 100; // минимальное напряжение для начала тарировки (RS485)
-    static const uint16_t MIN_ANALOGE_BLE_START = 100;     // минимальное напряжение для начала тарировки (BLE)
+    static const uint16_t MIN_ANALOGE_BLE_START = 100;   // минимальное напряжение для начала тарировки (BLE)
 
     enum type
     {
-        NO_LLS,    // нет подключенного ДУТа
-        ANALOGE_U, // аналоговый, напряжение
-        ANALOGE_F, // аналоговый, частота
-        RS485,     // цифровой, rs485
-        BLE_ESKORT // BLE Эскорт
+        NO_LLS,         // нет подключенного ДУТа
+        RS485,          // цифровой, rs485
+        BLE_ESKORT,     // BLE Эскорт
+        ANALOGE_U,      // аналоговый, напряжение
+        ANALOGE_F       // аналоговый, частота
     };
 
     enum error
@@ -159,7 +159,7 @@ public:
 
     virtual ~ILEVEL_SENSOR()
     {
-        Serial.print("\n  - Kill lls");
+        // Serial.print("\n  - Kill lls\n");
     }
 
 protected:

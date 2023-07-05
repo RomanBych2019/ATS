@@ -68,7 +68,7 @@ public:
     //  данные на экране Меню
     void sendScreenMenu(char const *ch, uint const n0, String const &v_atp, String const &t1, int const bt) const
     {
-        send("menu.cb0.val", bt);
+        send("menu.select0.val", bt);
         send("menu.t0.txt", ch);
         send("menu.t1.txt", t1);
         send("calibr.n0.val", n0);
@@ -183,7 +183,7 @@ public:
     void sendScreenSearch_BLE(String const &t1) const
     {
         if (t1.endsWith("ДУТ не найден"))
-            send("search_ble.t1.pco=RED");
+            send("search_ble.t1.pco", "RED");
         else
             send("search_ble.t1.pco", 50712);
         if (t1.startsWith("N 0 | RSSI 0"))
