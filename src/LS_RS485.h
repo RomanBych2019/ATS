@@ -73,7 +73,7 @@ public:
         if (netadress_ == 0xFF)
             return;
         flag_upgate_ = true;
-        // Serial.printf("\nUpdate RS485 adr: %d\n", netadress_);
+        Serial.printf("\nUpdate RS485 adr: %d\n", netadress_);
         std::vector<uint8_t> bufferRead485{};
         uint8_t rs485TransmitArray[] = {0x31, 0x00, 0x06, 0x00};
         rs485TransmitArray[1] = netadress_;

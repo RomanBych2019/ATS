@@ -201,15 +201,16 @@ public:
     // сброс настроек тарировки
     void reset()
     {
-        mode_ = tarring::AUTO;
+        mode_ = tarring::MANUAL;
         refill_ = 0;
         vtank_refill_ = 0;
-        time_pause_ = 0;
-        num_reffil_ = 0;
+        time_pause_ = 3;
+        num_reffil_ = 15;
         tank_->reset();
         n_ref_.clear();
         v_ref_.clear();
         v_total_.clear();
+        countV_->reset();
         id_ = "";
     }
 

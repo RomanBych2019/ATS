@@ -1,6 +1,6 @@
 #pragma once
 
-#define N0_PRINTDEBUG
+#define NO_PRINTDEBUG
 #define NO_verATP
 #define NO_verAnalogInput
 
@@ -48,13 +48,14 @@ static const uint8_t TXLS = GPIO_NUM_14;
 enum type
 {
   CALIBR,      // Калибровка счетчика
-  PUMPINGAUTO, // Выдача топлива
+  PUMPINGAUTO, // Откачка топлива автоматом
   TAR,         // Тарировка
   SETTING,     // Настройка тарировки
   MENU,        // Меню
   COUNT,       // Счетчик
-  PUMPINGOUT,  // Откачка топлива автоматом
+  PUMPINGOUT,  // Выдача топлива
   END_TAR,
+  END_TAR_HMI,
   MESSAGE,
   SEARCH_BLE,
   PAUSE,
@@ -111,14 +112,11 @@ void rpmFun();
 void modeMenu();
 void modePumpOut();
 void modeTarring();
-void modeCounter();
 void modePumpAuto();
-void modeCalibr();
 void endTarring();
 void endRefill();
 void proceedTarring();
 void modeSetting();
-void modeEndTar();
 void errors();
 void modbus();
 void digitalpause();

@@ -12,7 +12,7 @@ class AdvertisedDeviceCallbacks : public NimBLEAdvertisedDeviceCallbacks
 {
     void onResult(NimBLEAdvertisedDevice *advertisedDevice)
     {
-        Serial.printf("\nAdvertised Device found: %s", advertisedDevice->toString().c_str());
+        Serial.printf("\nAdvertised Device found: %s\n", advertisedDevice->toString().c_str());
         if (advertisedDevice->getName() == nameBLE_ls.c_str())
         {
             doConnect_ = true;
@@ -136,6 +136,7 @@ public:
 
     void update() override
     {
+        Serial.println("Begin update BLE");
         if (nameBLE_ls == "" || error_ == error::NOT_FOUND)
             return;
 
@@ -158,12 +159,13 @@ public:
         set_error_();
         BLEScan_->clearResults(); // delete results fromBLEScan buffer to release memory
         flag_upgate_ = false;
+        Serial.println("End update BLE");
     }
 
     ~LS_BLE()
     {
         Serial.print("\n  - Kill ble\n");
-        BLEScan_->stop();
-        BLEScan_->clearResults(); // delete results fromBLEScan buffer to release memory
+    //     BLEScan_->stop();
+    //     BLEScan_->clearResults(); // delete results fromBLEScan buffer to release memory
     };
 };

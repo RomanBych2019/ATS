@@ -153,8 +153,10 @@ public:
         if (!flag)
         {
             send("t_end.t0.txt", t0);
-            uint x_old = graph_.x0_;
-            uint y_old = graph_.y0_;
+            uint x_old = map(n->at(0), 0, n->back(), graph_.x0_, graph_.x_max_);
+            uint y_old = map(v->at(0), 0, v->back(), graph_.y0_, graph_.y_min_);
+            send("cir " + String(x_old) + "," + String(y_old) + ",4,RED");
+
             for (uint i = 1; i < v->size(); ++i)
             {
                 uint x = map(n->at(i), 0, n->back(), graph_.x0_, graph_.x_max_);
@@ -183,7 +185,7 @@ public:
     void sendScreenSearch_BLE(String const &t1) const
     {
         if (t1.endsWith("ДУТ не найден"))
-            send("search_ble.t1.pco", "RED");
+            send("search_ble.t1.pco=RED");
         else
             send("search_ble.t1.pco", 50712);
         if (t1.startsWith("N 0 | RSSI 0"))
@@ -258,6 +260,22 @@ private:
                 {
                     Serial.println("OnEvent : [ M : " + messege + " | D : " + date + " | R : " + response + " ]");
                 }
+                listnerCallback(messege, date, response);
+                messege.clear();
+                response.clear();
+                date.clear();
+                charEquals = false;
+            }
+
+            else if (inc == 0x66)
+            {
+                inc = _nextionSerial->read();
+                response.concat(checkHex(inc) + " ");
+                messege += String(inc, DEC);
+                if (_echo)
+                {
+                    // Serial.println("OnEvent : [ M : " + String(messege.toInt()) + " | R : " + response + " ]");
+                }
 
                 listnerCallback(messege, date, response);
                 messege.clear();
@@ -266,7 +284,7 @@ private:
             }
             else
             {
-                if (inc < MAX_ASCII && inc >= MIN_ASCII)
+                if (inc <= MAX_ASCII && inc >= MIN_ASCII)
                 {
                     if (!charEquals)
                     {

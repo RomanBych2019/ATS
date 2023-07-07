@@ -36,9 +36,9 @@ public:
     // включение насоса
     void on()
     {
+        time_start_ = millis();
         digitalWrite(pin_, ON);
         // digitalWrite(pin_indicate_, ON);
-        time_start_ = millis();
     }
     //выключение насоса
     void off()
