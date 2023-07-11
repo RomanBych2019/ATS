@@ -9,8 +9,8 @@ protected:
     uint16_t level_ = 0, counter_errror_ = 0;
     std::vector<uint16_t> v_level_; // вектор последних значений уровня
     uint8_t v_count_ = 0;
-    static const uint8_t COUNT_SEARCH_ERROR = 10; // максимальное количество ошибок
-    bool flag_upgate_ = false;                    // флаг нахождения в функции update
+    static const uint8_t COUNT_SEARCH_ERROR = 5; // максимальное количество ошибок
+    bool flag_upgate_ = false;                   // флаг нахождения в функции update
     uint16_t level_start_;
 
     ILEVEL_SENSOR()
@@ -28,6 +28,9 @@ protected:
 
     virtual void set_error_() = 0;
 
+public:
+    static const int MAX_SIZE = 20;
+
     static const uint16_t MIN_ANALOGE_U = 8;    // минимальное напряжение на рабочем ДУТ (аналог, напряжение в 0.01 В)
     static const uint16_t MAX_ANALOGE_U = 2000; // максимальное напряжение на рабочем ДУТ (аналог, напряжение в 0.01 В)
 
@@ -40,9 +43,6 @@ protected:
     static const uint16_t MIN_DIGITAL_B = 1;    // минимальное значение ДУТ BLE
     static const uint16_t MAX_DIGITAL_B = 4095; // максимальнoе значение ДУТ BLE
 
-public:
-    static const int MAX_SIZE = 20;
-
     static const uint16_t MIN_ANALOGE_U_START = 100;     // минимальное напряжение для начала тарировки (аналог, напряжение в 0.01 В)
     static const uint16_t MIN_ANALOGE_F_START = 2000;    // минимальное напряжение для начала тарировки (аналог, частота в Гц)
     static const uint16_t MIN_ANALOGE_RS485_START = 100; // минимальное напряжение для начала тарировки (RS485)
@@ -50,11 +50,11 @@ public:
 
     enum type
     {
-        NO_LLS,         // нет подключенного ДУТа
-        RS485,          // цифровой, rs485
-        BLE_ESKORT,     // BLE Эскорт
-        ANALOGE_U,      // аналоговый, напряжение
-        ANALOGE_F       // аналоговый, частота
+        NO_LLS,   // без ДУТ
+        RS485,      // цифровой, rs485
+        BLE_ESKORT, // BLE Эскорт
+        ANALOGE_U,  // аналоговый, напряжение
+        ANALOGE_F   // аналоговый, частота
     };
 
     enum error
@@ -92,6 +92,8 @@ public:
     }
 
     virtual void update() = 0;
+
+    virtual const bool searchLost(){};
 
     virtual void setNetadress(int){};
 

@@ -5,6 +5,7 @@
 #endif
 #include "LS_RS485.h"
 #include "LS_BLE.h"
+#include "LS_EMPTY.h"
 #include <TimeUtil.h>
 
 void setup()
@@ -16,7 +17,7 @@ void setup()
   Serial.begin(115200);
   Serial2.begin(19200);
   serialLS.begin(19200, SERIAL_8N1, RXLS, TXLS);
-  serialNextion.begin(19200, SWSERIAL_8N1, RXDNEX, TXDNEX);
+  serialNextion.begin(9600, SWSERIAL_8N1, RXDNEX, TXDNEX);
 
   hmi.echoEnabled(false);
   hmi.hmiCallBack(onHMIEvent);
@@ -46,11 +47,16 @@ void setup()
   pump = new Out(OUT_PUMP);
 
   datemod.mode = MENU;
-  lls = nullptr;
+  // lls = nullptr;
+  lls_Empty = new LS_EMPTY();
+  lls = lls_Empty;
 
 #ifdef verATP
   lls_ATP = new LS_RS485(&serialLS, 100);
 #endif
+
+  lls_RS485 = new LS_RS485(&serialLS, 1);
+  lls_Ble = new LS_BLE();
 
   pinMode(IN_KCOUNT, INPUT_PULLUP);           // инициализация входа импульсов ДАРТ
   attachInterrupt(IN_KCOUNT, rpmFun, CHANGE); // функция прерывания
@@ -75,20 +81,20 @@ void setup()
   xTaskCreatePinnedToCore(
       calculate_speedPump,        /* Вычисление скорости потока */
       "Task_calculate_speedPump", /* Название задачи */
-      2048,                       /* Размер стека задачи */
+      4096,                       /* Размер стека задачи */
       NULL,                       /* Параметр задачи */
       1,                          /* Приоритет задачи */
       NULL,                       /* Идентификатор задачи, чтобы ее можно было отслеживать */
-      tskNO_AFFINITY);            /* Ядро для выполнения задачи (0) */
+      1);                         /* Ядро для выполнения задачи (0) */
 
   xTaskCreatePinnedToCore(
       updateLS,        /* */
       "Task_updateLS", /* Название задачи */
-      2048,            /* Размер стека задачи */
+      8192,            /* Размер стека задачи */
       NULL,            /* Параметр задачи */
       1,               /* Приоритет задачи */
       NULL,            /* Идентификатор задачи, чтобы ее можно было отслеживать */
-      tskNO_AFFINITY); /* Ядро для выполнения задачи (0) */
+      1);              /* Ядро для выполнения задачи (0) */
 
 #ifdef PRINTDEBUG
   xTaskCreatePinnedToCore(
@@ -103,7 +109,7 @@ void setup()
   xTaskCreatePinnedToCore(
       sendNextion,        /* обновление данных HMI */
       "Task_sendNextion", /* Название задачи */
-      4096,               /* Размер стека задачи */
+      8192,               /* Размер стека задачи */
       NULL,               /* Параметр задачи */
       4,                  /* Приоритет задачи */
       NULL,               /* Идентификатор задачи, чтобы ее можно было отслеживать */
@@ -112,11 +118,11 @@ void setup()
   xTaskCreatePinnedToCore(
       readNextion,        /* чтение данных от HMI */
       "Task_readNextion", /* Название задачи */
-      4096,               /* Размер стека задачи */
+      8192,               /* Размер стека задачи */
       NULL,               /* Параметр задачи */
       2,                  /* Приоритет задачи */
       NULL,               /* Идентификатор задачи, чтобы ее можно было отслеживать */
-      tskNO_AFFINITY);
+      1);
 
   delay(2000);
   digitalWrite(INDI_F_PIN_, LOW);
@@ -188,12 +194,9 @@ void sendNextion(void *pvParameters)
                  dt.Hour(),
                  dt.Minute());
 
-      if (lls != nullptr)
-        str = makeLlsDateToDisplay(lls);
-      else
-        str = "";
-      if (lls != nullptr)
-        bt = static_cast<int>(lls->getType());
+      lls->getType() == ILEVEL_SENSOR::NO_LLS ? str = "" : str = makeLlsDateToDisplay(lls);
+
+      bt = static_cast<int>(lls->getType());
 
 #ifdef verATP
       if (lls_ATP->getError() == ILEVEL_SENSOR::NO_ERROR)
@@ -211,19 +214,14 @@ void sendNextion(void *pvParameters)
       break;
 
     case PUMPINGAUTO:
-      if (lls != nullptr)
-        str = makeLlsDateToDisplay(lls);
-      else
-        str = "";
+
       hmi.sendScreenPump_Auto(tar->getVfuel(), countV->getFlowRate(), str);
       hmi("pump_auto.b4.picc", pump->get() == OFF ? 14 : 15);
       break;
 
     case COUNT:
-      if (lls != nullptr)
-        str = makeLlsDateToDisplay(lls);
-      else
-        str = "";
+      lls->getType() == ILEVEL_SENSOR::NO_LLS ? str = "" : str = makeLlsDateToDisplay(lls);
+
       if (counter_display_resetring != tar->getCountReffil())
       {
         for (int i = 0; i < tar->getCountReffil(); i++)
@@ -245,12 +243,8 @@ void sendNextion(void *pvParameters)
     case PAUSE:;
 
     case TAR:
-      if (lls != nullptr)
-      {
-        str = makeLlsDateToDisplay(lls);
-      }
-      else
-        str = "ДУТ не подключен";
+      lls->getType() == ILEVEL_SENSOR::NO_LLS ? str = "ДУТ не подключен" : str = makeLlsDateToDisplay(lls);
+
       level = map(tar->getVfuel(), 0, tar->getVTank(), 0, 100);
       hmi("tar.b4.picc", pump->get() == OFF ? 23 : 24);
       uint tmp_time_pause;
@@ -262,6 +256,10 @@ void sendNextion(void *pvParameters)
       }
       else
         tmp_time_pause = tar->getTimePause() * 60;
+
+      if (tmp_time_pause > tar->getTimePause() * 60)
+        tmp_time_pause = tar->getTimePause() * 60;
+
       hmi.sendScreenTarring(tar->getVfuel() - tar->getBackRefill(), tar->getVfuel(), tar->getCountReffil(), tar->getNumRefill() - tar->getCountReffil(), countV->getFlowRate(), str, tar->getTimeTarring(), level, tmp_time_pause);
       break;
 
@@ -321,26 +319,17 @@ void sendNextion(void *pvParameters)
       }
       if (start_pause > millis())
         j0 = map(start_pause - millis(), TIME_PAUSE_END_TAR, 100, 100, 0);
-      if (lls != nullptr)
-        hmi.sendScreenEnd_Tar(str, j0, tar->getVRefill(), tar->getNRefill());
-      else
-        hmi.sendScreenEnd_Tar(str, j0);
+      lls->getType() == ILEVEL_SENSOR::NO_LLS ? hmi.sendScreenEnd_Tar(str, j0) : hmi.sendScreenEnd_Tar(str, j0, tar->getVRefill(), tar->getNRefill());
       break;
 
     case SETTING:
-      if (lls != nullptr)
-      {
-        str = makeLlsDateToDisplay(lls);
-      }
-      else
-      {
-        str = " не подключен";
-      }
+      lls->getType() == ILEVEL_SENSOR::NO_LLS ? str = " не подключен" : str = makeLlsDateToDisplay(lls);
+
       hmi.sendScreenSetting(tar->getTimeTarring(), str);
       break;
 
     case SEARCH_BLE:
-      if (lls != nullptr)
+      if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
       {
         if (lls->getNameBLE() != "")
         {
@@ -385,6 +374,7 @@ void modePumpOut()
 // Режим Тарировка
 void modeTarring()
 {
+
   if (tar->getVTank() <= tar->getVfuel()) // условие окончания тарировки
   {
     endTarring();
@@ -413,13 +403,7 @@ void modePumpAuto()
 // продолжение тарировки
 void proceedTarring()
 {
-  if (lls != nullptr)
-  {
-    tar->saveResultRefuil(lls->getLevel());
-  }
-  else
-    tar->saveResultRefuil();
-
+  lls->getType() == ILEVEL_SENSOR::NO_LLS ? tar->saveResultRefuil() : tar->saveResultRefuil(lls->getLevel());
   autostop = false;
   time_start_refill = millis();
   datemod.mode = TAR;
@@ -470,10 +454,7 @@ void exitTarring()
   {
     datemod.mode = END_TAR;
     start_pause = millis() + TIME_PAUSE_END_TAR;
-    if (lls != nullptr)
-      tar->saveResultRefuil(lls->getLevel());
-    else
-      tar->saveResultRefuil();
+    lls->getType() == ILEVEL_SENSOR::NO_LLS ? tar->saveResultRefuil() : tar->saveResultRefuil(lls->getLevel());
   }
   if (start_pause - millis() > 50)
   {
@@ -495,8 +476,8 @@ void updateLS(void *pvParameters)
     lls_ATP->update();
 #endif
 
-    if (datemod.mode != MENU && datemod.mode != CALIBR && datemod.mode != PUMPINGOUT && datemod.mode != SEARCH_BLE)
-      if (lls != nullptr)
+    if (datemod.mode == TAR || datemod.mode == PAUSE || datemod.mode == CALIBR)
+      if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
       {
         lls->update();
         // test();
@@ -521,43 +502,52 @@ void calculate_speedPump(void *pvParameters)
 void errors()
 {
   int error = 0;
-  if (datemod.mode == MESSAGE || datemod.mode == END_TAR || datemod.mode == CALIBR)
+  if (datemod.mode == MESSAGE || datemod.mode == END_TAR || datemod.mode == CALIBR || datemod.mode == MENU)
     return;
 
-  if (lls != nullptr && lls->getType() == ILEVEL_SENSOR::type::BLE_ESKORT)
+  if (lls->getType() != ILEVEL_SENSOR::NO_LLS) // если ДУТ подключен
   {
-    return;
-  }
-
-  if (lls != nullptr && tar->getType() == tarring::AUTO)
-  {
-    error |= lls->getError();
-    // проверка увеличения данных с ДУТа в проливах
-    if (tar->getCountReffil() > 3)
+    if (datemod.mode == SEARCH_BLE) // ДУТ BLE и режим поиск
     {
-      if (tar->getNRefill(tar->getCountReffil() - 1) < 10 + tar->getNRefill(tar->getCountReffil() - 2))
-        error |= 1 << 5;
+      return;
+    }
+
+    error = lls->getError(); // чтение ошибок ДУТ
+    if (datemod.mode == COUNT || datemod.mode == PUMPINGAUTO || datemod.mode == PUMPINGOUT)
+      if (error == ILEVEL_SENSOR::NOT_FOUND)
+      {
+        delete_lls();
+        return;
+      }
+
+    if (tar->getType() == tarring::AUTO) //  если тарировка в автоматическом режиме
+    {
+      if (tar->getCountReffil() > 3) // проверка увеличения данных с ДУТа в проливах
+      {
+        if (tar->getNRefill(tar->getCountReffil() - 1) < 10 + tar->getNRefill(tar->getCountReffil() - 2))
+          error |= 1 << 5;
+      }
+
+      if (datemod.mode == SETTING) // проверка, что тарировка начинается с приемлемого уровня ДУТ
+      {
+        if (lls->getLevel() > lls->getLevelStart())
+          error |= 1 << 7;
+      }
     }
   }
+
   // проверка, что после 30 секунд после включения насоса скорость пролива не меньше 5л/мин
   if (datemod.mode != PUMPINGAUTO)
     if (pump->get() == ON && millis() > pump->getTimeStart() + 30000)
     {
       if (countV->getFlowRate() < 5)
       {
-        if (!(lls != nullptr && lls->getType() == ILEVEL_SENSOR::type::BLE_ESKORT)) // если ДУТ BLE, скорость не контролируем
+        if (!(lls->getType() != ILEVEL_SENSOR::NO_LLS && lls->getType() == ILEVEL_SENSOR::type::BLE_ESKORT)) // если ДУТ BLE, скорость не контролируем
           error |= 1 << 6;
       }
     }
-  // проверка, что тарировка начинается с приемлемого уровня ДУТ
-  if (datemod.mode == SETTING)
-  {
-    if (lls != nullptr)
-      if (lls->getLevel() > lls->getLevelStart())
-        error |= 1 << 7;
-  }
 
-  if (error && (datemod.error != error))
+  if (error && datemod.error != error)
   {
     Serial.printf("\nErr: %d", error);
     pump->off();
@@ -628,12 +618,10 @@ void onHMIEvent(String messege, String data, String response)
     int k = flash.getInt("impulse_count", 2000); // чтение из eerom значения K счетчика
     countV->setKinLitr(k);
     datemod.error = 0;
-    if (lls != nullptr)
+    if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
     {
-      if (lls->getType() != ILEVEL_SENSOR::type::BLE_ESKORT)
-        delete_lls();
       // сброс ДУТа BLE без номера и не найденного в поиске
-      else if (lls->getNameBLE() == "" || lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
+      if (lls->getNameBLE() == "" || lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
         delete_lls();
     }
   }
@@ -660,16 +648,16 @@ void onHMIEvent(String messege, String data, String response)
 
   if (messege == "rs485!")
   {
-    delete_lls();
-    lls = new LS_RS485(&serialLS);
+    // delete_lls();
+    lls = lls_RS485;
     if (lls->search())
       tar->setType(tarring::AUTO);
   }
 
   if (messege == "ble!")
   {
-    delete_lls();
-    lls = new LS_BLE();
+    // delete_lls();
+    lls = lls_Ble;
   }
 
   if (messege == "no_lls!")
@@ -701,10 +689,7 @@ void onHMIEvent(String messege, String data, String response)
   if (messege == "resetring")
   {
     if (tar->getVfuel())
-      if (lls != nullptr)
-        tar->saveResultRefuil(lls->getLevel());
-      else
-        tar->saveResultRefuil();
+      lls->getType() == ILEVEL_SENSOR::NO_LLS ? tar->saveResultRefuil() : tar->saveResultRefuil(lls->getLevel());
     return;
   }
   if (messege == "reset")
@@ -759,11 +744,12 @@ void onHMIEvent(String messege, String data, String response)
 
   if (messege == "tar_start")
   {
-    if (lls != nullptr)
-      tar->saveResultRefuil(lls->getLevel());
+    if (tar->getVTank() && tar->getNumRefill())
+    {
+      lls->getType() == ILEVEL_SENSOR::NO_LLS ? tar->saveResultRefuil() : tar->saveResultRefuil(lls->getLevel());
+    }
     else
-      tar->saveResultRefuil();
-    tar->setTStart(Rtc.GetDateTime());
+      hmi("page menu"); //   возврат в меню при некорректных данных
   }
 
   if (messege == "pause")
@@ -781,15 +767,23 @@ void onHMIEvent(String messege, String data, String response)
   }
   if (messege == "clear_err")
   {
-    switch (data.toInt())
+    switch (datemod.error)
     {
-    case 1:
-      flag_dell_lls = true;
+    case 8:
+      datemod.mode = TAR;
+      if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
+        if (lls->getType() == ILEVEL_SENSOR::RS485)
+        {
+          Serial.println("Дут RS485 потерян. Ищем...");
+          lls->searchLost();
+        }
+      autostop = false;
       break;
 
     default:
       break;
     }
+    datemod.error = 0;
   }
 }
 
@@ -867,7 +861,7 @@ void printDebugLog(void *pvParameters)
     else
       Serial.println("ручная");
     Serial.print("Тип ДУТа\t\t");
-    if (lls != nullptr)
+    if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
     {
       switch (lls->getType())
       {
@@ -890,10 +884,10 @@ void printDebugLog(void *pvParameters)
       Serial.printf("Уровень сигнала ble\t%d\n", lls->getRSSI());
     }
     else
-      Serial.printf(("не выбран"));
+      Serial.printf(("не выбран\n"));
     // Serial.printf("\nНомер пролива\t\t%d", tar->getCountReffil());
-    // Serial.printf("\nОшибки\t\t\t%d", datemod.error);
-    // if (lls != nullptr)
+    Serial.printf("Ошибки\t\t\t%d\n", datemod.error);
+    // if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
     //   Serial.printf("\nОшибки LLS \t\t%d", lls->getError());
 
     Serial.println();
@@ -924,7 +918,7 @@ void modbus()
   datemod.pause = tar->getTimePause();
   datemod.timetarring = tar->getTimeTarring();
   datemod.typetarring = tar->getType();
-  if (lls != nullptr)
+  if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
   {
     datemod.typells = lls->getType();
     if (lls->getType() == ILEVEL_SENSOR::type::RS485)
@@ -997,37 +991,45 @@ String makeLlsDateToDisplay(ILEVEL_SENSOR *_lls)
     ch = "\\r";
   else
     ch = " | ";
-  if (_lls->getType() == ILEVEL_SENSOR::RS485)
+  if (_lls->getType() != ILEVEL_SENSOR::NO_LLS)
   {
-    if (lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
-      return "RS485 не найден!";
-    else if (lls->getError() == ILEVEL_SENSOR::error::LOST)
-      return "RS485" + ch + "Adr: " + String(_lls->getNetadres()) + ch + "Потерян!";
-    else
-      return "RS485" + ch + "Adr: " + String(_lls->getNetadres()) + ch + "N= " + String(_lls->getLevel());
-  }
-  else if (_lls->getType() == ILEVEL_SENSOR::BLE_ESKORT)
-  {
-    if (lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
-      return "BLE не найден!";
-    else
-      return "BLE" + ch + "RSSI: " + String(_lls->getRSSI()) + ch + "N= " + String(_lls->getLevel());
-  }
+    if (_lls->getType() == ILEVEL_SENSOR::RS485)
+    {
+      if (lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
+        return "RS485 не найден!";
+      else if (lls->getError() == ILEVEL_SENSOR::error::LOST)
+        return "RS485" + ch + "Adr: " + String(_lls->getNetadres()) + ch + "Потерян!";
+      else
+      {
+        String str = "---";
+        if (_lls->getLevel() <= ILEVEL_SENSOR::MAX_DIGITAL_N && _lls->getLevel() >= ILEVEL_SENSOR::MIN_DIGITAL_N)
+          str = String(_lls->getLevel());
+        return "RS485" + ch + "Adr: " + String(_lls->getNetadres()) + ch + "N= " + str;
+      }
+    }
+    else if (_lls->getType() == ILEVEL_SENSOR::BLE_ESKORT)
+    {
+      if (lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
+        return "BLE не найден!";
+      else
+        return "BLE" + ch + "RSSI: " + String(_lls->getRSSI()) + ch + "N= " + String(_lls->getLevel());
+    }
 #ifdef verAnalogInput
-  else if (_lls->getType() == ILEVEL_SENSOR::ANALOGE_U)
-  {
-    if (lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
-      return "Analoge U не найден!";
-    else
-      return "Analoge U" + ch + "U= " + String(_lls->getLevel() / 100.0, 2) + " V";
-  }
-  else if (_lls->getType() == ILEVEL_SENSOR::ANALOGE_F)
-  {
-    if (lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
-      return "Analoge F не найден!";
-    return "Analoge F" + ch + "F= " + String(_lls->getLevel()) + " Hz";
-  }
+    else if (_lls->getType() == ILEVEL_SENSOR::ANALOGE_U)
+    {
+      if (lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
+        return "Analoge U не найден!";
+      else
+        return "Analoge U" + ch + "U= " + String(_lls->getLevel() / 100.0, 2) + " V";
+    }
+    else if (_lls->getType() == ILEVEL_SENSOR::ANALOGE_F)
+    {
+      if (lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
+        return "Analoge F не найден!";
+      return "Analoge F" + ch + "F= " + String(_lls->getLevel()) + " Hz";
+    }
 #endif
+  }
   return {};
 }
 
@@ -1222,12 +1224,7 @@ void getDataLog(AsyncWebServerRequest *request, String file)
 
 void delete_lls()
 {
-  if (lls != nullptr)
-  {
-    while (lls->getFlagUpgate())
-      delay(10);
-    delete lls;
-    lls = nullptr;
-    flag_dell_lls = false;
-  }
+  Serial.println("Delete LLS");
+  // lls = nullptr;
+  lls = lls_Empty;
 }

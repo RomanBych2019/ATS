@@ -23,7 +23,7 @@ public:
         digitalWrite(pin_, OFF);
         off();
     }
-    Out(int pin) : pin_(pin) //конструктор для выходов на плате + индикатор включения (при необходимости)
+    Out(int pin) : pin_(pin) //конструктор для выходов на плате
     {
         pinMode(pin, OUTPUT);
         off();

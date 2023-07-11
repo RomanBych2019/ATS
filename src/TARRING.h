@@ -34,7 +34,7 @@ private:
 
     uint time_pause_ = 3; // пауза между проливами, мин
 
-    uint num_reffil_ = 15;  // плановое кол-во проливов
+    uint num_reffil_ = 0;  // плановое кол-во проливов
 
     const int PUMPSPEED = 500; // скорость потока 10*литр/минута для вычисления времени тарировки
     COUNTER *countV_;
@@ -189,7 +189,7 @@ public:
     // получить общее время тарировки
     const uint32_t getTimeTarring()
     {
-        if (getVTank() - getVfuel() > 0)
+        if (getVTank() - getVfuel() > 0 && num_reffil_ >= getCountReffil())
             if (mode_ == tarring::MANUAL)
                 return time_pause_ * (num_reffil_ - getCountReffil()) + (getVTank() - getVfuel()) / PUMPSPEED;
             else
@@ -205,7 +205,7 @@ public:
         refill_ = 0;
         vtank_refill_ = 0;
         time_pause_ = 3;
-        num_reffil_ = 15;
+        num_reffil_ = 0;
         tank_->reset();
         n_ref_.clear();
         v_ref_.clear();

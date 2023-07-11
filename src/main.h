@@ -1,6 +1,6 @@
 #pragma once
 
-#define NO_PRINTDEBUG
+#define no_PRINTDEBUG
 #define NO_verATP
 #define NO_verAnalogInput
 
@@ -27,6 +27,11 @@
 #include "TANK.h"
 #include "NEXTION.h"
 #include "Out.h"
+#include "LS_RS485.h"
+#include "LS_BLE.h"
+#include "LS_EMPTY.h"
+
+
 #ifdef verATP
 #include "LS_RS485.h"
 #endif
@@ -155,6 +160,10 @@ SoftwareSerial serialNextion;
 
 // ДУТ
 ILEVEL_SENSOR *lls;
+
+LS_RS485 *lls_RS485;
+LS_BLE *lls_Ble;
+LS_EMPTY *lls_Empty;
 
 #ifdef verATP
 // ДУТ в емкости АТП

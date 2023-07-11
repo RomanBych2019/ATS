@@ -68,7 +68,29 @@ public:
     //  данные на экране Меню
     void sendScreenMenu(char const *ch, uint const n0, String const &v_atp, String const &t1, int const bt) const
     {
-        send("menu.select0.val", bt);
+        // send("menu.select0.val", bt);
+
+        switch (bt)
+        {
+        case 0:
+            send("menu.b5.picc", 1);
+            send("menu.b6.picc", 0);
+            send("menu.b7.picc", 0);
+            break;
+        case 1:
+            send("menu.b5.picc", 0);
+            send("menu.b6.picc", 1);
+            send("menu.b7.picc", 0);
+            break;
+        case 2:
+            send("menu.b5.picc", 0);
+            send("menu.b6.picc", 0);
+            send("menu.b7.picc", 1);
+            break;
+        
+        default:
+            break;
+        }
         send("menu.t0.txt", ch);
         send("menu.t1.txt", t1);
         send("calibr.n0.val", n0);
@@ -274,7 +296,7 @@ private:
                 messege += String(inc, DEC);
                 if (_echo)
                 {
-                    // Serial.println("OnEvent : [ M : " + String(messege.toInt()) + " | R : " + response + " ]");
+                    Serial.println("OnEvent : [ M : " + String(messege.toInt()) + " | R : " + response + " ]");
                 }
 
                 listnerCallback(messege, date, response);

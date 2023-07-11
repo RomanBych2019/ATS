@@ -3,7 +3,7 @@
 #include "NimBLEDevice.h"
 #include "LEVEL_SENSOR.h"
 
-static String nameBLE_ls = {};
+static String nameBLE_ls = "TD_00000001";
 static bool doConnect_ = false;
 static NimBLEAdvertisedDevice *llsDevice_;
 const uint16_t scanTime_ = 5; // In seconds

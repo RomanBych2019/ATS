@@ -14,6 +14,44 @@ private:
 
     static const uint8_t PROGMEM DSCRC_TABLE[];
 
+    void update_()
+    {
+        if (netadress_ == 0xFF)
+            return;
+        // flag_upgate_ = true;
+        Serial.printf("\nUpdate RS485 adr: %d\n", netadress_);
+        doConnect_ = false;
+        std::vector<uint8_t> bufferRead485{};
+        uint8_t rs485TransmitArray[] = {0x31, 0x00, 0x06, 0x00};
+        rs485TransmitArray[1] = netadress_;
+        rs485TransmitArray[3] = crc8(rs485TransmitArray, 3);
+        for (int i = 0; i < 3; i++)
+        {
+            port_->write(rs485TransmitArray, 4);
+            delay(100);
+            while (port_->available())
+            {
+                bufferRead485.push_back(port_->read());
+                delay(5);
+            }
+            if (bufferRead485.size() >= 9)
+            {
+                if (bufferRead485[0] == 0x3E && bufferRead485[1] == netadress_ && !controlCrc8(bufferRead485))
+                {
+                    level_ = bufferRead485[5] << 8 | bufferRead485[4];
+                    setVLevel();
+                    set_error_();
+                    // flag_upgate_ = false;
+                    doConnect_ = true;
+                    return;
+                }
+            }
+            bufferRead485.clear();
+            delay(50);
+        }
+        level_ = 65535;
+    }
+
     // ошибки
     void set_error_()
     {
@@ -70,52 +108,20 @@ public:
 
     void update() override
     {
-        if (netadress_ == 0xFF)
-            return;
-        flag_upgate_ = true;
-        Serial.printf("\nUpdate RS485 adr: %d\n", netadress_);
-        std::vector<uint8_t> bufferRead485{};
-        uint8_t rs485TransmitArray[] = {0x31, 0x00, 0x06, 0x00};
-        rs485TransmitArray[1] = netadress_;
-        rs485TransmitArray[3] = crc8(rs485TransmitArray, 3);
-        for (int i = 0; i < 3; i++)
-        {
-            port_->write(rs485TransmitArray, 4);
-            delay(100);
-            while (port_->available())
-            {
-                bufferRead485.push_back(port_->read());
-                delay(5);
-            }
-            if (bufferRead485.size() >= 9)
-            {
-                if (bufferRead485[0] == 0x3E && bufferRead485[1] == netadress_ && !crc8(bufferRead485))
-                {
-                    level_ = bufferRead485[5] << 8 | bufferRead485[4];
-                    setVLevel();
-                    set_error_();
-                    flag_upgate_ = false;
-                    doConnect_ = true;
-                    return;
-                }
-            }
-            bufferRead485.clear();
-            delay(50);
-        }
-        // level_ = 65535;
-        doConnect_ = false;
+        update_();
         set_error_();
-        flag_upgate_ = false;
     }
 
     const bool search() override
     {
         // Serial.print("\nSearch RS485\n");
-        flag_upgate_ = true;
+        // flag_upgate_ = true;
+        error_ = error::NO_ERROR;
+        counter_errror_ = 0;
         for (uint j = 0; j < 10; j++)
         {
             netadress_ = j;
-            update();
+            update_();
             if (doConnect_)
             {
                 return true;
@@ -123,7 +129,26 @@ public:
         }
         netadress_ = 0xFF; // ошибка, ДУТ не найден
         error_ = error::NOT_FOUND;
-        return {};
+        return false;
+    }
+
+
+    const bool searchLost() override
+    {
+        // Serial.print("\nSearch RS485\n");
+        // flag_upgate_ = true;
+        counter_errror_ = 0;
+        for (uint j = 0; j < 10; j++)
+        {
+            update_();
+            if (doConnect_)
+            {
+                error_ = error::NO_ERROR;
+                return true;
+            }
+        }
+        error_ = error::LOST;
+        return false;
     }
 
     float getTarLevel()
@@ -148,7 +173,7 @@ private:
         return crc;
     }
     // функция вычисления контрольной суммы
-    uint8_t crc8(std::vector<uint8_t> &buf)
+    bool controlCrc8(std::vector<uint8_t> &buf)
     {
         uint8_t crc = 0;
         uint8_t len = buf.size();
