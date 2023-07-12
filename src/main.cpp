@@ -200,9 +200,12 @@ void sendNextion(void *pvParameters)
 
 #ifdef verATP
       if (lls_ATP->getError() == ILEVEL_SENSOR::NO_ERROR)
+      {
         res = String(lls_ATP->getTarLevel(), 1);
+        res += " l";
+      }
       else
-        res = "---";
+        res = "";
 #endif
 
       hmi.sendScreenMenu(datestring, countV->getKinLitr(), res, str, bt);
@@ -887,6 +890,7 @@ void printDebugLog(void *pvParameters)
       Serial.printf(("не выбран\n"));
     // Serial.printf("\nНомер пролива\t\t%d", tar->getCountReffil());
     Serial.printf("Ошибки\t\t\t%d\n", datemod.error);
+    Serial.printf("ДУТ АТП\t\t\t%f\n", lls_ATP->getTarLevel());
     // if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
     //   Serial.printf("\nОшибки LLS \t\t%d", lls->getError());
 
