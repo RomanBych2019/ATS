@@ -132,7 +132,7 @@ void setup()
 void loop()
 {
   errors();
-
+  hmi.listen();
   modbus();
 
   switch (datemod.mode)
@@ -369,12 +369,12 @@ void modeMenu()
 // Режим Автоматическая выдача топлива
 void modePumpOut()
 {
-  if (tar->getVTank() <= tar->getVfuel()) //
+  if (tar->getVTank() <= tar->getVfuel())
   {
     pump->off();
   }
 }
-// Режим Тарировка
+/*  ----------  Режим Тарировка ---------- */
 void modeTarring()
 {
 
