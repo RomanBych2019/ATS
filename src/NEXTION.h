@@ -27,7 +27,6 @@ private:
         uint16_t x_max_ = 787;
         uint16_t y_min_ = 50;
     } graph_;
-
 public:
     NEXTION(SoftwareSerial &port) : _nextionSerial(&port) {}
 
@@ -348,4 +347,29 @@ private:
         temp += String(date % 60, DEC);
         return temp;
     }
+
+String readNEXTION()
+    {
+        //* This has to only be enabled for Software serial
+
+        ((SoftwareSerial *)_nextionSerial)->listen(); // Start software serial listen
+
+        String resp;
+        unsigned long startTime = millis(); // Start time for Timeout
+
+        while ((millis() - startTime < READ_TIMEOUT))
+        {
+            if (_nextionSerial->available() > 0)
+            {
+                int c = _nextionSerial->read();
+                resp.concat(" " + String(c, HEX));
+            }
+        }
+        if (_echo)
+        {
+            Serial.println("->> " + resp);
+        }
+        return resp;
+    }
+
 };

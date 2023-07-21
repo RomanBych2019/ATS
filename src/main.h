@@ -128,6 +128,7 @@ void digitalpause();
 void startPump();
 void stopPump();
 String makeLlsDateToDisplay(ILEVEL_SENSOR *_lls);
+void onHMIEvent(String messege, String data, String response);
 void exitTarring();
 String saveLog();
 void wifiInit();
