@@ -28,7 +28,7 @@ class LS_BLE : public ILEVEL_SENSOR
 public:
 private:
     uint16_t dataBLE_[4] = {};
-    uint16_t RSSI_ = {};
+    int16_t RSSI_ = {};
     BLEScan *BLEScan_;
     boolean _doConnect = false;
     String ManufacturerData = {};
@@ -115,7 +115,7 @@ public:
         return result.toInt();
     }
 
-    const uint16_t getRSSI() const override
+    const int16_t getRSSI() const override
     {
         return RSSI_;
     }

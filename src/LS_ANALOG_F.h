@@ -4,6 +4,7 @@
 
 #include "LEVEL_SENSOR.h"
 #include "main.h"
+#define PLATE_v1
 
 float f_ = 0;
 unsigned long t_start_ = 0;

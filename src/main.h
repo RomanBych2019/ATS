@@ -1,7 +1,7 @@
 #pragma once
 
 #define PRINTDEBUG
-#define verATP
+#define NO_verATP
 #define NO_verAnalogInput
 
 #include <Arduino.h>
@@ -10,7 +10,7 @@
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-// #include <AsyncElegantOTA.h>
+#include <AsyncElegantOTA.h>
 #include <freertos/task.h>
 #include <FreeRTOSConfig.h>
 #include <SPIFFS.h>
@@ -21,6 +21,8 @@
 #include <RtcDS3231.h>
 #ifdef verAnalogInput
 #include <Adafruit_ADS1X15.h>
+#include "LS_ANALOG_U.h"
+#include "LS_ANALOG_F.h"
 #endif
 #include "COUNTER.h"
 #include "TARRING.h"
@@ -31,10 +33,12 @@
 #include "LS_BLE.h"
 #include "LS_EMPTY.h"
 
-
 #ifdef verATP
 #include "LS_RS485.h"
 #endif
+
+#define serialLS Serial1
+#define serialMB Serial2
 
 #define PLATE_v1 // PLATE_v1 - плата вер1
 
@@ -100,7 +104,7 @@ union
 int counter_display_resetring = 0;
 volatile long duratiom_counter_imp = 0;
 const long MIN_DURATION = 500;
-const uint16_t TIME_UPDATE_LLS = 10000;
+const uint16_t TIME_UPDATE_LLS = 10000;       // период обновления данных ДУТ
 const uint16_t TIME_UPDATE_HMI = 200;         // период обновления данных на дисплее, мсек
 const uint16_t TIME_UPDATE_SPEED_PUMP = 2000; // период обновления скорости потока
 const uint16_t TIME_PAUSE_END_TAR = 20000;    // пауза в конце тарировки для передаче данных в систему мониторинга
@@ -108,6 +112,7 @@ const uint16_t TIME_PAUSE_END_TAR = 20000;    // пауза в конце тар
 unsigned long start_pause, worktime, time_start_refill;
 bool autostop = false;
 bool flag_dell_lls = false; // флаг необходимости удаления lls
+bool flag_HMI_send = false; // ф
 
 const char *LOG_FILE_NAME = "log.csv";
 
@@ -151,17 +156,17 @@ void printDebugLog(void *pvParameters);
 RtcDS3231<TwoWire> Rtc(Wire);
 #ifdef verAnalogInput
 Adafruit_ADS1115 ads; /* Use this for the 16-bit version */
+LS_ANALOG_F *lls_analog_u;
+LS_ANALOG_U *lls_analog_f;
 #endif
 Preferences flash;
-SoftwareSerial serialNextion;
+SoftwareSerial serialHMI;
 // SoftwareSerial serialLS;
-#define serialLS Serial1
 
 // void test();
 
 // ДУТ
 ILEVEL_SENSOR *lls;
-
 LS_RS485 *lls_RS485;
 LS_BLE *lls_Ble;
 LS_EMPTY *lls_Empty;
@@ -174,7 +179,7 @@ LS_RS485 *lls_ATP;
 // насос
 Out *pump;
 
-// запас
+// запасной выход
 Out *out_tmp;
 
 // счетчик
@@ -187,4 +192,4 @@ TANK *tank;
 TARRING *tar;
 
 // дисплей
-NEXTION hmi(serialNextion);
+NEXTION hmi(serialHMI);

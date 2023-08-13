@@ -6,7 +6,7 @@
 #include "LS_RS485.h"
 #include "LS_BLE.h"
 #include "LS_EMPTY.h"
-#include <TimeUtil.h>
+// #include <TimeUtil.h>
 
 void setup()
 {
@@ -15,9 +15,10 @@ void setup()
   digitalWrite(INDI_F_PIN_, HIGH); // индикация загрузки
 
   Serial.begin(115200);
-  Serial2.begin(19200);
   serialLS.begin(19200, SERIAL_8N1, RXLS, TXLS);
-  serialNextion.begin(9600, SWSERIAL_8N1, RXDNEX, TXDNEX);
+  serialHMI.begin(9600, SWSERIAL_8N1, RXDNEX, TXDNEX);
+  serialMB.begin(19200);
+  // serialMB.begin(19200, SWSERIAL_8N1, RXDNEX, TXDNEX);
 
   hmi.echoEnabled(false);
   hmi.hmiCallBack(onHMIEvent);
@@ -32,13 +33,9 @@ void setup()
   ads.begin();
 #endif
 
-  wifiInit();
-  server.begin();
-  // AsyncElegantOTA.begin(&server); // Start ElegantOTA
-
   flash.begin("eerom", false);
 
-  int k = flash.getInt("impulse_count", 2000); // чтение из eerom значения K счетчика
+  int k = flash.getInt("impulse_count", 1680); // чтение из eerom значения K счетчика
   countV = new COUNTER(k);
 
   tank = new TANK(countV);
@@ -47,7 +44,6 @@ void setup()
   pump = new Out(OUT_PUMP);
 
   datemod.mode = MENU;
-  // lls = nullptr;
   lls_Empty = new LS_EMPTY();
   lls = lls_Empty;
 
@@ -61,7 +57,7 @@ void setup()
   pinMode(IN_KCOUNT, INPUT_PULLUP);           // инициализация входа импульсов ДАРТ
   attachInterrupt(IN_KCOUNT, rpmFun, CHANGE); // функция прерывания
 
-  modbus_configure(&Serial2, 19200, 1, 0, SIZE, datemod.au16data);
+  modbus_configure(&serialMB, 19200, 1, 0, SIZE, datemod.au16data);
   modbus_update_comms(19200, 1);
 
   hmi("rest");
@@ -106,6 +102,7 @@ void setup()
       NULL,                 /* Идентификатор задачи, чтобы ее можно было отслеживать */
       tskNO_AFFINITY);      /* Ядро для выполнения задачи (0) */
 #endif
+
   xTaskCreatePinnedToCore(
       sendNextion,        /* обновление данных HMI */
       "Task_sendNextion", /* Название задачи */
@@ -120,15 +117,19 @@ void setup()
       "Task_readNextion", /* Название задачи */
       8192,               /* Размер стека задачи */
       NULL,               /* Параметр задачи */
-      2,                  /* Приоритет задачи */
+      5,                  /* Приоритет задачи */
       NULL,               /* Идентификатор задачи, чтобы ее можно было отслеживать */
       1);
 
-  delay(2000);
+  wifiInit();
+  server.begin();
+  AsyncElegantOTA.begin(&server); // Start ElegantOTA
+
   digitalWrite(INDI_F_PIN_, LOW);
   pinMode(INIDICATE_COUNT, OUTPUT);
   digitalWrite(INIDICATE_COUNT, LOW);
 }
+
 void loop()
 {
   errors();
@@ -180,182 +181,192 @@ void sendNextion(void *pvParameters)
     int bt = 0;
     int j0 = 0;
 
-    hmi("sendme");
-
-    switch (datemod.mode)
+    if (flag_HMI_send)
     {
-    case MENU:
-      snprintf_P(datestring,
-                 SIZE,
-                 PSTR("%02u.%02u.%04u %02u:%02u"),
-                 dt.Day(),
-                 dt.Month(),
-                 dt.Year(),
-                 dt.Hour(),
-                 dt.Minute());
+      hmi("sendme");
+    }
+    
+    else
+    {
+      switch (datemod.mode)
+      {
+      case MENU:
+        snprintf_P(datestring,
+                   SIZE,
+                   PSTR("%02u.%02u.%04u %02u:%02u"),
+                   dt.Day(),
+                   dt.Month(),
+                   dt.Year(),
+                   dt.Hour(),
+                   dt.Minute());
 
-      lls->getType() == ILEVEL_SENSOR::NO_LLS ? str = "" : str = makeLlsDateToDisplay(lls);
+        lls->getType() == ILEVEL_SENSOR::NO_LLS ? str = "" : str = makeLlsDateToDisplay(lls);
 
-      bt = static_cast<int>(lls->getType());
+        bt = static_cast<int>(lls->getType());
 
 #ifdef verATP
-      if (lls_ATP->getError() == ILEVEL_SENSOR::NO_ERROR)
-      {
-        res = String(lls_ATP->getTarLevel(), 1);
-        res += " l";
-      }
-      else
-        res = "";
+        if (lls_ATP->getError() == ILEVEL_SENSOR::NO_ERROR)
+        {
+          res = String(lls_ATP->getTarLevel(), 1);
+          res += " l";
+        }
+        else
+          res = "";
 #endif
 
-      hmi.sendScreenMenu(datestring, countV->getKinLitr(), res, str, bt);
-      break;
+        hmi.sendScreenMenu(datestring, countV->getKinLitr(), res, str, bt);
+        break;
 
-    case PUMPINGOUT:
-      hmi.sendScreenPump_Out(tar->getVfuel(), countV->getFlowRate());
-      hmi("pump_out.b1.picc", pump->get() == OFF ? 20 : 15);
-      break;
+      case PUMPINGOUT:
+        hmi.sendScreenPump_Out(tar->getVfuel(), countV->getFlowRate());
+        hmi("pump_out.b1.picc", pump->get() == OFF ? 20 : 15);
+        break;
 
-    case PUMPINGAUTO:
+      case PUMPINGAUTO:
 
-      hmi.sendScreenPump_Auto(tar->getVfuel(), countV->getFlowRate(), str);
-      hmi("pump_auto.b4.picc", pump->get() == OFF ? 14 : 15);
-      break;
+        hmi.sendScreenPump_Auto(tar->getVfuel(), countV->getFlowRate(), str);
+        hmi("pump_auto.b4.picc", pump->get() == OFF ? 14 : 15);
+        break;
 
-    case COUNT:
-      lls->getType() == ILEVEL_SENSOR::NO_LLS ? str = "" : str = makeLlsDateToDisplay(lls);
+      case COUNT:
+        lls->getType() == ILEVEL_SENSOR::NO_LLS ? str = "" : str = makeLlsDateToDisplay(lls);
 
-      if (counter_display_resetring != tar->getCountReffil())
-      {
-        for (int i = 0; i < tar->getCountReffil(); i++)
+        if (counter_display_resetring != tar->getCountReffil())
         {
-          res += String(tar->getRefill(i) / 10.0, 1) + " l\\r";
-        }
-        hmi.sendScreenCounter(res);
-        counter_display_resetring++;
-      }
-      hmi.sendScreenCounter(tar->getVfuel() - tar->getBackRefill(), tar->getVfuel(), countV->getFlowRate(), str);
-      hmi("counter.b4.picc", pump->get() == OFF ? 10 : 11);
-      break;
-
-    case CALIBR:
-      hmi.sendScreenCalibration(countV->getVFuelCalibr(), countV->getK());
-      hmi("calibr.b4.picc", pump->get() == OFF ? 2 : 3);
-      break;
-
-    case PAUSE:;
-
-    case TAR:
-      lls->getType() == ILEVEL_SENSOR::NO_LLS ? str = "ДУТ не подключен" : str = makeLlsDateToDisplay(lls);
-
-      level = map(tar->getVfuel(), 0, tar->getVTank(), 0, 100);
-      hmi("tar.b4.picc", pump->get() == OFF ? 23 : 24);
-      uint tmp_time_pause;
-      if (autostop && tar->getType() == tarring::MANUAL)
-      {
-        tmp_time_pause = 60 * (tar->getTimePause()) - (millis() - start_pause) / 1000;
-        if (tmp_time_pause == 0)
-          tmp_time_pause = 1;
-      }
-      else
-        tmp_time_pause = tar->getTimePause() * 60;
-
-      if (tmp_time_pause > tar->getTimePause() * 60)
-        tmp_time_pause = tar->getTimePause() * 60;
-
-      hmi.sendScreenTarring(tar->getVfuel() - tar->getBackRefill(), tar->getVfuel(), tar->getCountReffil(), tar->getNumRefill() - tar->getCountReffil(), countV->getFlowRate(), str, tar->getTimeTarring(), level, tmp_time_pause);
-      break;
-
-    case MESSAGE:
-      if (datemod.error & ILEVEL_SENSOR::error::CLIFF)
-      {
-        str = "Данные с ДУТ ниже минимального значения\\rПроверте настройки ДУТ (min уровень))";
-      }
-      else if (datemod.error & ILEVEL_SENSOR::error::CLOSURE)
-      {
-        str = "Данные с ДУТ выше максимального значения\\rПроверте настройки и подключение ДУТ";
-      }
-      else if (datemod.error & ILEVEL_SENSOR::error::NOT_FOUND)
-      {
-        str = "ДУТ не найден\\rПроверте настройки и подключение ДУТ";
-        delete_lls();
-      }
-      else if (datemod.error & ILEVEL_SENSOR::error::LOST)
-      {
-        str = "ДУТ потерян\\rПроверте подключение ДУТ";
-      }
-      else if (datemod.error & 32)
-      {
-        str = "Нет изменения значений ДУТ\\rПроверте поступление топлива в бак";
-      }
-      else if (datemod.error & 64)
-      {
-        str = "Низкая скорость потока топлива\\rПроверте прохождение топлива через счетчик";
-      }
-      else if (datemod.error & 128)
-      {
-        str = "Высокие начальные показания ДУТ\\rПроверте калибровку ДУТ, убедитесь в отсутствии топлива в баке";
-      }
-      if (str)
-        hmi.sendScreenMessage(str);
-      break;
-
-    case END_TAR_HMI:
-      str = "ID: " + tar->getId() + "\\rN  | LLS   | V";
-      for (int i = 0; i < tar->getNRefill()->size(); i++)
-      {
-        uint n = tar->getNRefill()->at(i);
-        String res_n = "";
-        if (n < 10)
-          res_n = "       " + String(n);
-        else if (n < 100)
-          res_n = "    " + String(n);
-        else if (n < 1000)
-          res_n = "  " + String(n);
-        else
-          res_n = " " + String(n);
-        if (i < 10)
-          str += "\\r" + String(i) + "   |";
-        else
-          str += "\\r" + String(i) + " |";
-        str += res_n + "| " + String(tar->getVRefill()->at(i) / 10.0, 1);
-      }
-      if (start_pause > millis())
-        j0 = map(start_pause - millis(), TIME_PAUSE_END_TAR, 100, 100, 0);
-      lls->getType() == ILEVEL_SENSOR::NO_LLS ? hmi.sendScreenEnd_Tar(str, j0) : hmi.sendScreenEnd_Tar(str, j0, tar->getVRefill(), tar->getNRefill());
-      break;
-
-    case SETTING:
-      lls->getType() == ILEVEL_SENSOR::NO_LLS ? str = " не подключен" : str = makeLlsDateToDisplay(lls);
-
-      hmi.sendScreenSetting(tar->getTimeTarring(), str);
-      break;
-
-    case SEARCH_BLE:
-      if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
-      {
-        if (lls->getNameBLE() != "")
-        {
-          if (lls->getError() == ILEVEL_SENSOR::NOT_FOUND)
-            str = "ДУТ не найден";
-          else if (lls->getError() == ILEVEL_SENSOR::NO_ERROR)
+          for (int i = 0; i < tar->getCountReffil(); i++)
           {
-            str = "N " + String(lls->getLevel()) + " | RSSI " + String(lls->getRSSI()) + " | V " + String(lls->getDataBLE(1) / 10) + "." + String(lls->getDataBLE(1) % 10) + " | T " + String(lls->getDataBLE(2)) + " | D " + String(lls->getDataBLE(3));
+            res += String(tar->getRefill(i) / 10.0, 1) + " l\\r";
           }
+          hmi.sendScreenCounter(res);
+          counter_display_resetring++;
+        }
+        hmi.sendScreenCounter(tar->getVfuel() - tar->getBackRefill(), tar->getVfuel(), countV->getFlowRate(), str);
+        hmi("counter.b4.picc", pump->get() == OFF ? 10 : 11);
+        break;
+
+      case CALIBR:
+        hmi.sendScreenCalibration(countV->getVFuelCalibr(), countV->getK());
+        hmi("calibr.b4.picc", pump->get() == OFF ? 2 : 3);
+        break;
+
+      case PAUSE:;
+
+      case TAR:
+        lls->getType() == ILEVEL_SENSOR::NO_LLS ? str = "ДУТ не подключен" : str = makeLlsDateToDisplay(lls);
+
+        level = map(tar->getVfuel(), 0, tar->getVTank(), 0, 100);
+        hmi("tar.b4.picc", pump->get() == OFF ? 23 : 24);
+        uint tmp_time_pause;
+        if (autostop && tar->getType() == tarring::MANUAL)
+        {
+          tmp_time_pause = 60 * (tar->getTimePause()) - (millis() - start_pause) / 1000;
+          if (tmp_time_pause == 0)
+            tmp_time_pause = 1;
         }
         else
-          str = "";
-        hmi.sendScreenSearch_BLE(str);
+          tmp_time_pause = tar->getTimePause() * 60;
+
+        if (tmp_time_pause > tar->getTimePause() * 60)
+          tmp_time_pause = tar->getTimePause() * 60;
+
+        hmi.sendScreenTarring(tar->getVfuel() - tar->getBackRefill(), tar->getVfuel(), tar->getCountReffil(), tar->getNumRefill() - tar->getCountReffil(), countV->getFlowRate(), str, tar->getTimeTarring(), level, tmp_time_pause);
+        break;
+
+      case MESSAGE:
+        if (datemod.error & ILEVEL_SENSOR::error::CLIFF)
+        {
+          str = "Данные с ДУТ ниже минимального значения\\rПроверте настройки ДУТ (min уровень))";
+        }
+        else if (datemod.error & ILEVEL_SENSOR::error::CLOSURE)
+        {
+          str = "Данные с ДУТ выше максимального значения\\rПроверте настройки и подключение ДУТ";
+        }
+        else if (datemod.error & ILEVEL_SENSOR::error::NOT_FOUND)
+        {
+          str = "ДУТ не найден\\rПроверте настройки и подключение ДУТ";
+          delete_lls();
+        }
+        else if (datemod.error & ILEVEL_SENSOR::error::LOST)
+        {
+          str = "ДУТ потерян\\rПроверте подключение ДУТ";
+        }
+        else if (datemod.error & 32)
+        {
+          str = "Нет изменения значений ДУТ\\rПроверте поступление топлива в бак";
+        }
+        else if (datemod.error & 64)
+        {
+          str = "Низкая скорость потока топлива\\rПроверте прохождение топлива через счетчик";
+        }
+        else if (datemod.error & 128)
+        {
+          str = "Высокие начальные показания ДУТ\\rПроверте калибровку ДУТ, убедитесь в отсутствии топлива в баке";
+        }
+        if (str)
+          hmi.sendScreenMessage(str);
+        break;
+
+      case END_TAR_HMI:
+        str = "ID: " + tar->getId() + "\\rN  | LLS   | V";
+        for (int i = 0; i < tar->getNRefill()->size(); i++)
+        {
+          uint n = tar->getNRefill()->at(i);
+          String res_n = "";
+          if (n < 10)
+            res_n = "       " + String(n);
+          else if (n < 100)
+            res_n = "    " + String(n);
+          else if (n < 1000)
+            res_n = "  " + String(n);
+          else
+            res_n = " " + String(n);
+          if (i < 10)
+            str += "\\r" + String(i) + "   |";
+          else
+            str += "\\r" + String(i) + " |";
+          str += res_n + "| " + String(tar->getVRefill()->at(i) / 10.0, 1);
+        }
+        if (start_pause > millis())
+          j0 = map(start_pause - millis(), TIME_PAUSE_END_TAR, 100, 100, 0);
+        lls->getType() == ILEVEL_SENSOR::NO_LLS ? hmi.sendScreenEnd_Tar(str, j0) : hmi.sendScreenEnd_Tar(str, j0, tar->getVRefill(), tar->getNRefill());
+        break;
+
+      case SETTING:
+        lls->getType() == ILEVEL_SENSOR::NO_LLS ? str = " не подключен" : str = makeLlsDateToDisplay(lls);
+
+        hmi.sendScreenSetting(tar->getTimeTarring(), str);
+        break;
+
+      case SEARCH_BLE:
+        if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
+        {
+          if (lls->getNameBLE() != "")
+          {
+            if (lls->getError() == ILEVEL_SENSOR::NOT_FOUND)
+              str = "ДУТ не найден";
+            else if (lls->getError() == ILEVEL_SENSOR::NO_ERROR)
+            {
+              str = "N " + String(lls->getLevel()) + " | RSSI " + String(lls->getRSSI()) + " | V " + String(lls->getDataBLE(1) / 10) + "." + String(lls->getDataBLE(1) % 10) + " | T " + String(lls->getDataBLE(2)) + " | D " + String(lls->getDataBLE(3));
+            }
+          }
+          else
+            str = "";
+          hmi.sendScreenSearch_BLE(str);
+        }
+        break;
+      default:
+        break;
       }
-      break;
-    default:
-      break;
     }
+  
+    flag_HMI_send = !flag_HMI_send;
+
     vTaskDelay(pdMS_TO_TICKS(TIME_UPDATE_HMI));
   }
   vTaskDelete(NULL);
 }
-// Режим Меню
+
+/*  ---------- Режим Меню ---------- */
 void modeMenu()
 {
   tar->reset();
@@ -366,7 +377,7 @@ void modeMenu()
   autostop = false;
 }
 
-// Режим Автоматическая выдача топлива
+/*  ---------- Режим Автоматическая выдача топлива ---------- */
 void modePumpOut()
 {
   if (tar->getVTank() <= tar->getVfuel())
@@ -374,10 +385,10 @@ void modePumpOut()
     pump->off();
   }
 }
-/*  ----------  Режим Тарировка ---------- */
+
+/*  ---------- Режим Тарировка ---------- */
 void modeTarring()
 {
-
   if (tar->getVTank() <= tar->getVfuel()) // условие окончания тарировки
   {
     endTarring();
@@ -389,7 +400,7 @@ void modeTarring()
   }
 }
 
-// Режим Автоматическое выкачивание________________________________________________________________________________________________
+/*  ---------- Режим Автоматическое выкачивание ---------- */
 void modePumpAuto()
 {
   if (millis() - worktime > 30000)
@@ -403,7 +414,7 @@ void modePumpAuto()
     worktime = millis();
 }
 
-// продолжение тарировки
+/*  ---------- Продолжение тарировки  ---------- */
 void proceedTarring()
 {
   lls->getType() == ILEVEL_SENSOR::NO_LLS ? tar->saveResultRefuil() : tar->saveResultRefuil(lls->getLevel());
@@ -413,7 +424,7 @@ void proceedTarring()
   pump->on();
 }
 
-// окончание очередного пролива
+/*  ---------- Окончание очередного пролива  ---------- */
 void endRefill()
 {
   stopPump();
@@ -424,7 +435,7 @@ void endRefill()
     datemod.mode = PAUSE;
   }
 
-  if (millis() - start_pause < 10000)
+  if (millis() - start_pause < 5000)
     return;
 
   if (countV->getFlowRate() > 0) // проверка, что топливо больше не поступает в бак
@@ -439,7 +450,7 @@ void endRefill()
     proceedTarring();
 }
 
-// финал тарировки
+/*  ---------- Финал тарировки  ---------- */
 void endTarring()
 {
   autostop = true;
@@ -450,7 +461,7 @@ void endTarring()
   exitTarring();
 }
 
-// выход из тарировки
+/*  ---------- Выход из тарировки  ---------- */
 void exitTarring()
 {
   if (datemod.mode != END_TAR)
@@ -470,7 +481,7 @@ void exitTarring()
   hmi("vis bt0,1");
 }
 
-// считывание данных с ДУТ
+/*  ---------- Считывание данных с ДУТ  ---------- */
 void updateLS(void *pvParameters)
 {
   for (;;)
@@ -490,7 +501,7 @@ void updateLS(void *pvParameters)
   vTaskDelete(NULL);
 }
 
-// вычисление скорости потока
+/*  ---------- Вычисление скорости потока  ---------- */
 void calculate_speedPump(void *pvParameters)
 {
   for (;;)
@@ -501,7 +512,7 @@ void calculate_speedPump(void *pvParameters)
   vTaskDelete(NULL);
 }
 
-// ошибки ДУТ
+/*  ---------- Ошибки ДУТ  ---------- */
 void errors()
 {
   int error = 0;
@@ -559,7 +570,7 @@ void errors()
   }
 }
 
-// функция подсчета импульсов с ДАРТ
+/*  ---------- Функция подсчета импульсов с ДАРТ  ---------- */
 void rpmFun()
 {
   if (micros() - duratiom_counter_imp > MIN_DURATION)
@@ -570,7 +581,7 @@ void rpmFun()
   duratiom_counter_imp = micros();
 }
 
-// парсинг полученых данных от дисплея Nextion
+/*  ---------- Парсинг полученых данных от дисплея Nextion  ---------- */
 void onHMIEvent(String messege, String data, String response)
 {
   if (messege.isEmpty())
@@ -615,7 +626,7 @@ void onHMIEvent(String messege, String data, String response)
     break;
   }
 
-  //  Экран Меню--------------------------------------------------------------------------------------------------------------------------
+  /*  ----------  Экран Меню  ---------- */
   if (messege == "menu")
   {
     int k = flash.getInt("impulse_count", 2000); // чтение из eerom значения K счетчика
@@ -639,17 +650,17 @@ void onHMIEvent(String messege, String data, String response)
 #endif
   }
 
-  if (messege == "af!")
+  else if (messege == "af!")
   {
 #ifdef verAnalogInput
     delete_lls();
-    lls = new LS_ANALOG_AF;
+    lls = new LS_ANALOG_F;
     lls->search();
     tar->setType(tarring::AUTO);
 #endif
   }
 
-  if (messege == "rs485!")
+  else if (messege == "rs485!")
   {
     // delete_lls();
     lls = lls_RS485;
@@ -657,79 +668,79 @@ void onHMIEvent(String messege, String data, String response)
       tar->setType(tarring::AUTO);
   }
 
-  if (messege == "ble!")
+  else if (messege == "ble!")
   {
     // delete_lls();
     lls = lls_Ble;
   }
 
-  if (messege == "no_lls!")
+  else if (messege == "no_lls!")
   {
     delete_lls();
   }
 
-  if (messege == "TD_") // получение имени ДУТа BLE Эскорт
+  else if (messege == "TD_") // получение имени ДУТа BLE Эскорт
   {
     lls->setNameBLE(messege + data);
     lls->search();
   }
 
-  if (messege == "pump")
+  else if (messege == "pump")
   {
     pump->get() ? stopPump() : startPump();
   }
 
-  if (messege == "endtarr") // окончание тарировки
+  else if (messege == "endtarr") // окончание тарировки
   {
     exitTarring();
   }
 
-  if (messege == "save") // сохранение тарировки
+  else if (messege == "save") // сохранение тарировки
   {
     saveLog();
   }
 
-  if (messege == "resetring")
+  else if (messege == "resetring")
   {
     if (tar->getVfuel())
       lls->getType() == ILEVEL_SENSOR::NO_LLS ? tar->saveResultRefuil() : tar->saveResultRefuil(lls->getLevel());
     return;
   }
-  if (messege == "reset")
+  else if (messege == "reset")
   {
     tar->reset();
     counter_display_resetring = -1;
   }
 
-  if (messege == "calibr")
+  else if (messege == "calibr")
   {
     data.toInt() ? countV->reset() : stopPump();
   }
 
-  if (messege == "k_count") // получение промежуточного значения k_in_Litr
+  else if (messege == "k_count") // получение промежуточного значения k_in_Litr
   {
     countV->setKinLitrCalibr(data.toInt());
   }
 
-  if (messege == "save_k") // получение нового К, запись в память
+  else if (messege == "save_k") // получение нового К, запись в память
   {
     flash.putInt("impulse_count", data.toInt()); // запись в eerom значения K счетчика
     countV->setKinLitr(data.toInt());
   }
-  if (messege == "id") // получение номера тарируемого объекта
+  else if (messege == "id") // получение номера тарируемого объекта
   {
     tar->setId(data);
   }
-  if (messege == "vtank") // получение объема бака
+  else if (messege == "vtank") // получение объема бака
   {
     tank->setVTank(data.toInt() * 10);
   }
-  if (messege == "qt") // получение количества проливов
+  else if (messege == "qt") // получение количества проливов
   {
     tar->setNumRefill(data.toInt());
   }
 
-  //  Получениее времени --------------------------------------------------------------------------------------------------------------------------
+  /*  ----------  Получениее времени  ---------- */
   if (messege == "date")
   {
     Serial.println();
@@ -743,11 +754,11 @@ void onHMIEvent(String messege, String data, String response)
     Rtc.SetDateTime(compiled);
   }
 
-  //  Экран Тарировка--------------------------------------------------------------------------------------------------------------------------
+  /*  ---------- Экран Тарировка ---------- */
 
   if (messege == "tar_start")
   {
-    if (tar->getVTank() && tar->getNumRefill())
+    if (tar->getVTank() > 200 && tar->getNumRefill() > 4)
     {
       lls->getType() == ILEVEL_SENSOR::NO_LLS ? tar->saveResultRefuil() : tar->saveResultRefuil(lls->getLevel());
     }
@@ -790,7 +801,7 @@ void onHMIEvent(String messege, String data, String response)
   }
 }
 
-// данные с Nextion
+/*  ---------- данные с Nextion ---------- */
 void readNextion(void *pvParameters)
 {
   for (;;)
@@ -890,7 +901,7 @@ void printDebugLog(void *pvParameters)
       Serial.printf(("не выбран\n"));
     // Serial.printf("\nНомер пролива\t\t%d", tar->getCountReffil());
     Serial.printf("Ошибки\t\t\t%d\n", datemod.error);
-    Serial.printf("ДУТ АТП\t\t\t%f\n", lls_ATP->getTarLevel());
+    // Serial.printf("ДУТ АТП\t\t\t%f\n", lls_ATP->getTarLevel());
     // if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
     //   Serial.printf("\nОшибки LLS \t\t%d", lls->getError());
 
@@ -901,7 +912,7 @@ void printDebugLog(void *pvParameters)
 }
 #endif
 
-// Обновление данных таблицы modbus
+/*  ---------- Обновление данных таблицы modbus ---------- */
 void modbus()
 {
   modbus_update();
@@ -959,7 +970,7 @@ void modbus()
 void digitalpause()
 {
 
-  if (lls->getVecLevel()->size() < 20)
+  if (lls->getVecLevel()->size() < ILEVEL_SENSOR::MAX_SIZE)
     return;
 
   uint32_t res = 0;
@@ -1088,7 +1099,6 @@ String saveLog()
     default:
       break;
     }
-
     file.printf("Type LLS: %s | Adr LLS: %s | Time pause: %d min.\n", type, adr, tar->getTimePause());
   }
   RtcDateTime dt = tar->getTStart();
@@ -1147,22 +1157,12 @@ String deleteLog()
 
 void wifiInit()
 {
-  WiFi.mode(WIFI_STA);
   WiFi.setHostname("ATS");
-  const char *SSID = "Trivi Tacho";
-  const char *PASWD = "Rus__687";
-  WiFi.begin(SSID, PASWD);
-  int counter_WiFi = 0;
-  while (WiFi.status() != WL_CONNECTED && counter_WiFi < 10)
-  {
-    delay(500);
-    counter_WiFi++;
-  }
+  WiFi.mode(WIFI_AP);
   if (WiFi.status() != WL_CONNECTED)
   {
     const char *SSID = "ATS";
     const char *PASWD = "12_04_19";
-    WiFi.mode(WIFI_AP);
     WiFi.softAP(SSID, PASWD, 1, 0, 2);
     WiFi.setTxPower(WIFI_POWER_7dBm);
   }

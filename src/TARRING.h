@@ -36,7 +36,7 @@ private:
 
     uint num_reffil_ = 0;  // плановое кол-во проливов
 
-    const int PUMPSPEED = 500; // скорость потока 10*литр/минута для вычисления времени тарировки
+    const int PUMPSPEED = 440; // скорость потока 10*литр/минута для вычисления времени тарировки
     COUNTER *countV_;
     TANK *tank_;
     tarring::mode mode_;

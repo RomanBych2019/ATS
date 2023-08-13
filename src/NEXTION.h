@@ -61,6 +61,7 @@ public:
     {
         // xSemaphoreTake(nexton_mutex, portMAX_DELAY);
         handle();
+        // readNEXTION();
         // xSemaphoreGive(nexton_mutex);
     }
 
@@ -257,6 +258,7 @@ private:
         String date;
         bool charEquals = false;
         unsigned long startTime = millis();
+        // ((SoftwareSerial *)_nextionSerial)->listen(); // Start software serial listen
 
         // while ((millis() - startTime < CMD_READ_TIMEOUT))
         // {
@@ -282,14 +284,15 @@ private:
                     Serial.println("OnEvent : [ M : " + messege + " | D : " + date + " | R : " + response + " ]");
                 }
                 listnerCallback(messege, date, response);
-                messege.clear();
-                response.clear();
-                date.clear();
-                charEquals = false;
+            //     messege.clear();
+            //     response.clear();
+            //     date.clear();
+            //     charEquals = false;
             }
 
             else if (inc == 0x66)
             {
+                delay(2);
                 inc = _nextionSerial->read();
                 response.concat(checkHex(inc) + " ");
                 messege += String(inc, DEC);
@@ -299,9 +302,9 @@ private:
                 }
 
                 listnerCallback(messege, date, response);
-                messege.clear();
-                date.clear();
-                charEquals = false;
+                // messege.clear();
+                // date.clear();
+                // charEquals = false;
             }
             else
             {
@@ -331,7 +334,7 @@ private:
                     charEquals = false;
                 }
             }
-            delay(10);
+            delay(2);
         }
         return response;
         // }
@@ -352,7 +355,7 @@ String readNEXTION()
     {
         //* This has to only be enabled for Software serial
 
-        ((SoftwareSerial *)_nextionSerial)->listen(); // Start software serial listen
+        // ((SoftwareSerial *)_nextionSerial)->listen(); // Start software serial listen
 
         String resp;
         unsigned long startTime = millis(); // Start time for Timeout

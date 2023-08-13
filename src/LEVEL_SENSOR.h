@@ -29,7 +29,7 @@ protected:
     virtual void set_error_() = 0;
 
 public:
-    static const int MAX_SIZE = 20;
+    static const int MAX_SIZE = 10; // размер буфера данных от ДУТ
 
     static const uint16_t MIN_ANALOGE_U = 8;    // минимальное напряжение на рабочем ДУТ (аналог, напряжение в 0.01 В)
     static const uint16_t MAX_ANALOGE_U = 2000; // максимальное напряжение на рабочем ДУТ (аналог, напряжение в 0.01 В)
@@ -149,7 +149,7 @@ public:
         }
     }
 
-    virtual const uint16_t getRSSI() const
+    virtual const int16_t getRSSI() const
     {
         return {};
     }
