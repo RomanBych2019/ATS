@@ -18,15 +18,13 @@ void setup()
   serialLS.begin(19200, SERIAL_8N1, RXLS, TXLS);
   serialHMI.begin(9600, SWSERIAL_8N1, RXDNEX, TXDNEX);
   serialMB.begin(19200);
-  // serialMB.begin(19200, SWSERIAL_8N1, RXDNEX, TXDNEX);
 
-  hmi.echoEnabled(false);
+  hmi.echoEnabled(true);
   hmi.hmiCallBack(onHMIEvent);
+  hmi("rest");
 
   Rtc.Begin();
-  SPIFFS.begin(false);
-
-  digitalWrite(GPIO_NUM_2, HIGH);
+  SPIFFS.begin(true);
 
 #ifdef verAnalogInput
   ads.setGain(GAIN_ONE);
@@ -47,10 +45,6 @@ void setup()
   lls_Empty = new LS_EMPTY();
   lls = lls_Empty;
 
-#ifdef verATP
-  lls_ATP = new LS_RS485(&serialLS, 100);
-#endif
-
   lls_RS485 = new LS_RS485(&serialLS, 1);
   lls_Ble = new LS_BLE();
 
@@ -60,7 +54,9 @@ void setup()
   modbus_configure(&serialMB, 19200, 1, 0, SIZE, datemod.au16data);
   modbus_update_comms(19200, 1);
 
-  hmi("rest");
+#ifdef verATP
+  lls_ATP = new LS_RS485(&serialLS, 100);
+#endif
 
   // страница  списка файлов
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -86,7 +82,7 @@ void setup()
   xTaskCreatePinnedToCore(
       updateLS,        /* */
       "Task_updateLS", /* Название задачи */
-      8192,            /* Размер стека задачи */
+      16364,            /* Размер стека задачи */
       NULL,            /* Параметр задачи */
       1,               /* Приоритет задачи */
       NULL,            /* Идентификатор задачи, чтобы ее можно было отслеживать */
@@ -115,7 +111,7 @@ void setup()
   xTaskCreatePinnedToCore(
       readNextion,        /* чтение данных от HMI */
       "Task_readNextion", /* Название задачи */
-      8192,               /* Размер стека задачи */
+      16384,               /* Размер стека задачи */
       NULL,               /* Параметр задачи */
       5,                  /* Приоритет задачи */
       NULL,               /* Идентификатор задачи, чтобы ее можно было отслеживать */
@@ -185,7 +181,7 @@ void sendNextion(void *pvParameters)
     {
       hmi("sendme");
     }
-    
+
     else
     {
       switch (datemod.mode)
@@ -207,11 +203,14 @@ void sendNextion(void *pvParameters)
 #ifdef verATP
         if (lls_ATP->getError() == ILEVEL_SENSOR::NO_ERROR)
         {
-          res = String(lls_ATP->getTarLevel(), 1);
-          res += " l";
+          if (lls_ATP->getTarLevel() != -1.0)
+          {
+            res = String(lls_ATP->getTarLevel(), 1);
+            res += " l";
+          }
         }
-        else
-          res = "";
+        if (lls_ATP->getError() == ILEVEL_SENSOR::CLOSURE)
+          res = "closure";
 #endif
 
         hmi.sendScreenMenu(datestring, countV->getKinLitr(), res, str, bt);
@@ -358,7 +357,7 @@ void sendNextion(void *pvParameters)
         break;
       }
     }
-  
+
     flag_HMI_send = !flag_HMI_send;
 
     vTaskDelay(pdMS_TO_TICKS(TIME_UPDATE_HMI));
@@ -389,6 +388,18 @@ void modePumpOut()
 /*  ---------- Режим Тарировка ---------- */
 void modeTarring()
 {
+  
+  if (tar->getCountReffil() == 0)
+  {
+    if (tar->getVTank() > 200 && tar->getNumRefill() > 4)
+    {
+      lls->getType() == ILEVEL_SENSOR::NO_LLS ? tar->saveResultRefuil() : tar->saveResultRefuil(lls->getLevel());
+    }
+    else
+      hmi("page menu"); //   возврат в меню при некорректных данных
+  }
+  
+  
   if (tar->getVTank() <= tar->getVfuel()) // условие окончания тарировки
   {
     endTarring();
@@ -487,10 +498,11 @@ void updateLS(void *pvParameters)
   for (;;)
   {
 #ifdef verATP
-    lls_ATP->update();
+    if (datemod.mode == MENU)
+      lls_ATP->update();
 #endif
 
-    if (datemod.mode == TAR || datemod.mode == PAUSE || datemod.mode == CALIBR)
+    if (datemod.mode == TAR || datemod.mode == PAUSE || datemod.mode == COUNT)
       if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
       {
         lls->update();
@@ -662,7 +674,6 @@ void onHMIEvent(String messege, String data, String response)
 
   else if (messege == "rs485!")
   {
-    // delete_lls();
     lls = lls_RS485;
     if (lls->search())
       tar->setType(tarring::AUTO);
@@ -670,7 +681,6 @@ void onHMIEvent(String messege, String data, String response)
 
   else if (messege == "ble!")
   {
-    // delete_lls();
     lls = lls_Ble;
   }
 
@@ -712,7 +722,7 @@ void onHMIEvent(String messege, String data, String response)
     counter_display_resetring = -1;
   }
 
-  else if (messege == "calibr")
+  else if (messege == "CALIBR")
   {
     data.toInt() ? countV->reset() : stopPump();
   }
@@ -743,27 +753,14 @@ void onHMIEvent(String messege, String data, String response)
   /*  ----------  Получениее времени  ---------- */
   if (messege == "date")
   {
-    Serial.println();
     auto index_sym = data.indexOf(';');
     auto DATE = data.substring(0, index_sym);
     auto TIME = data.substring(index_sym + 1, data.length());
-    Serial.printf("Date %s Time %s\n", DATE, TIME);
+    // Serial.printf("Date %s Time %s\n", DATE, TIME);
 
     // Для установки  времени
     RtcDateTime compiled = RtcDateTime(DATE.c_str(), TIME.c_str());
     Rtc.SetDateTime(compiled);
-  }
-
-  /*  ---------- Экран Тарировка ---------- */
-
-  if (messege == "tar_start")
-  {
-    if (tar->getVTank() > 200 && tar->getNumRefill() > 4)
-    {
-      lls->getType() == ILEVEL_SENSOR::NO_LLS ? tar->saveResultRefuil() : tar->saveResultRefuil(lls->getLevel());
-    }
-    else
-      hmi("page menu"); //   возврат в меню при некорректных данных
   }
 
   if (messege == "pause")
@@ -901,10 +898,11 @@ void printDebugLog(void *pvParameters)
       Serial.printf(("не выбран\n"));
     // Serial.printf("\nНомер пролива\t\t%d", tar->getCountReffil());
     Serial.printf("Ошибки\t\t\t%d\n", datemod.error);
-    // Serial.printf("ДУТ АТП\t\t\t%f\n", lls_ATP->getTarLevel());
-    // if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
-    //   Serial.printf("\nОшибки LLS \t\t%d", lls->getError());
-
+    Serial.printf("ДУТ АТП\t\t\t%d\n", lls_ATP->getLevel());
+      
+      #ifdef verATP
+      Serial.printf("\nОшибки LLS АТП \t\t%d", lls_ATP->getError());
+      #endif
     Serial.println();
     vTaskDelay(pdMS_TO_TICKS(5000));
   }
@@ -1005,14 +1003,14 @@ String makeLlsDateToDisplay(ILEVEL_SENSOR *_lls)
   if (datemod.mode == TAR || datemod.mode == PAUSE)
     ch = "\\r";
   else
-    ch = " | ";
+    ch = " ";
   if (_lls->getType() != ILEVEL_SENSOR::NO_LLS)
   {
     if (_lls->getType() == ILEVEL_SENSOR::RS485)
     {
-      if (lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
+      if (_lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
         return "RS485 не найден!";
-      else if (lls->getError() == ILEVEL_SENSOR::error::LOST)
+      else if (_lls->getError() == ILEVEL_SENSOR::error::LOST)
         return "RS485" + ch + "Adr: " + String(_lls->getNetadres()) + ch + "Потерян!";
       else
       {
@@ -1024,22 +1022,22 @@ String makeLlsDateToDisplay(ILEVEL_SENSOR *_lls)
     }
     else if (_lls->getType() == ILEVEL_SENSOR::BLE_ESKORT)
     {
-      if (lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
+      if (_lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
         return "BLE не найден!";
       else
-        return "BLE" + ch + "RSSI: " + String(_lls->getRSSI()) + ch + "N= " + String(_lls->getLevel());
+        return _lls->getNameBLE() + ch + "RSSI:" + String(_lls->getRSSI()) + ch + "N=" + String(_lls->getLevel());
     }
 #ifdef verAnalogInput
     else if (_lls->getType() == ILEVEL_SENSOR::ANALOGE_U)
     {
-      if (lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
+      if (_lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
         return "Analoge U не найден!";
       else
         return "Analoge U" + ch + "U= " + String(_lls->getLevel() / 100.0, 2) + " V";
     }
     else if (_lls->getType() == ILEVEL_SENSOR::ANALOGE_F)
     {
-      if (lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
+      if (_lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
         return "Analoge F не найден!";
       return "Analoge F" + ch + "F= " + String(_lls->getLevel()) + " Hz";
     }
@@ -1230,5 +1228,7 @@ void delete_lls()
 {
   Serial.println("Delete LLS");
   // lls = nullptr;
+  if (lls->getType() == ILEVEL_SENSOR::BLE_ESKORT)
+    lls->setNameBLE("");
   lls = lls_Empty;
 }

@@ -8,7 +8,7 @@ class LS_EMPTY : public ILEVEL_SENSOR
 public:
     LS_EMPTY()
     {
-        Serial.print("\n  - Create empty \n");
+        // Serial.print("\n  - Create empty \n");
         type_ = ILEVEL_SENSOR::NO_LLS;
     }
 

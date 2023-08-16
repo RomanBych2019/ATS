@@ -1,8 +1,8 @@
 #pragma once
 
-#define PRINTDEBUG
-#define NO_verATP
-#define NO_verAnalogInput
+// #define PRINTDEBUG
+#define verATP
+// #define verAnalogInput
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -105,7 +105,7 @@ int counter_display_resetring = 0;
 volatile long duratiom_counter_imp = 0;
 const long MIN_DURATION = 500;
 const uint16_t TIME_UPDATE_LLS = 10000;       // период обновления данных ДУТ
-const uint16_t TIME_UPDATE_HMI = 200;         // период обновления данных на дисплее, мсек
+const uint16_t TIME_UPDATE_HMI = 300;         // период обновления данных на дисплее, мсек
 const uint16_t TIME_UPDATE_SPEED_PUMP = 2000; // период обновления скорости потока
 const uint16_t TIME_PAUSE_END_TAR = 20000;    // пауза в конце тарировки для передаче данных в систему мониторинга
 

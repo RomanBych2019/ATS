@@ -20,6 +20,7 @@ private:
     typedef void (*hmiListner)(String messege, String date, String response);
     hmiListner listnerCallback;
     boolean flag = false;
+    int count_ff = 0; // счетчик символов ff
     struct graph
     {
         uint16_t x0_ = 380;
@@ -251,14 +252,15 @@ private:
         return String(currentNo, HEX);
     }
 
-    String handle()
+    void handle()
     {
         String response;
         String messege;
         String date;
+        count_ff = 0;
         bool charEquals = false;
         unsigned long startTime = millis();
-        // ((SoftwareSerial *)_nextionSerial)->listen(); // Start software serial listen
+        ((SoftwareSerial *)_nextionSerial)->listen(); // Start software serial listen
 
         // while ((millis() - startTime < CMD_READ_TIMEOUT))
         // {
@@ -275,36 +277,15 @@ private:
             }
             else if (inc == 0xff)
             {
-                response.clear();
+                // response.clear();
+                count_ff++;
             }
-            else if (inc == 0x0A)
-            {
-                if (_echo)
-                {
-                    Serial.println("OnEvent : [ M : " + messege + " | D : " + date + " | R : " + response + " ]");
-                }
-                listnerCallback(messege, date, response);
-            //     messege.clear();
-            //     response.clear();
-            //     date.clear();
-            //     charEquals = false;
-            }
-
             else if (inc == 0x66)
             {
-                delay(2);
+                delay(3);
                 inc = _nextionSerial->read();
                 response.concat(checkHex(inc) + " ");
                 messege += String(inc, DEC);
-                if (_echo)
-                {
-                    Serial.println("OnEvent : [ M : " + String(messege.toInt()) + " | R : " + response + " ]");
-                }
-
-                listnerCallback(messege, date, response);
-                // messege.clear();
-                // date.clear();
-                // charEquals = false;
             }
             else
             {
@@ -327,16 +308,27 @@ private:
                         date += char(inc);
                     }
                 }
-                else
-                {
-                    messege.clear();
-                    date.clear();
-                    charEquals = false;
-                }
             }
-            delay(2);
+            if (count_ff == 3 || inc == 0x0A)
+            {
+                if (_echo)
+                {
+                    Serial.println("\nOnEvent : [ M : " + messege + " | D : " + date + " | R : " + response + " ]");
+                }
+                listnerCallback(messege, date, response);
+                messege.clear();
+                response.clear();
+                date.clear();
+                count_ff = 0;
+                charEquals = false;
+            }
+            delay(3);
+            
+            if (millis() - startTime > CMD_READ_TIMEOUT)
+                return;
         }
-        return response;
+        // }
+        // return response;
         // }
         // return {};
     }

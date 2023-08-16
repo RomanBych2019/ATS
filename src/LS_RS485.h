@@ -18,7 +18,6 @@ private:
     {
         if (netadress_ == 0xFF)
             return;
-        // flag_upgate_ = true;
         Serial.printf("\nUpdate RS485 adr: %d\n", netadress_);
         doConnect_ = false;
         std::vector<uint8_t> bufferRead485{};
@@ -41,7 +40,6 @@ private:
                     level_ = bufferRead485[5] << 8 | bufferRead485[4];
                     setVLevel();
                     set_error_();
-                    // flag_upgate_ = false;
                     doConnect_ = true;
                     return;
                 }
@@ -49,7 +47,8 @@ private:
             bufferRead485.clear();
             delay(50);
         }
-        level_ = 65535;
+        level_ = 5000;
+        set_error_();
     }
 
     // ошибки
@@ -74,7 +73,7 @@ private:
             if (counter_errror_ > COUNT_SEARCH_ERROR)
                 error_ = error::CLIFF;
         }
-        else if (level_ > MAX_DIGITAL_N)
+        else if (level_ >= MAX_DIGITAL_N)
         {
             counter_errror_++;
             if (counter_errror_ > COUNT_SEARCH_ERROR)
@@ -91,7 +90,7 @@ public:
     LS_RS485() {}
     LS_RS485(HardwareSerial *port, uint16_t netadress = 0x01) : port_(port), netadress_(netadress)
     {
-        Serial.print("\n  - Create rs485 \n");
+        // Serial.print("\n  - Create rs485 \n");
 
         type_ = ILEVEL_SENSOR::RS485;
         level_start_ = MIN_ANALOGE_RS485_START;
@@ -116,10 +115,10 @@ public:
     {
         // Serial.print("\nSearch RS485\n");
         // flag_upgate_ = true;
-        error_ = error::NO_ERROR;
-        counter_errror_ = 0;
         for (uint j = 0; j < 10; j++)
         {
+        error_ = error::NO_ERROR;
+        counter_errror_ = 0;
             netadress_ = j;
             update_();
             if (doConnect_)
@@ -159,7 +158,7 @@ public:
         auto it_begin = it_end;
         it_begin--;
         if (it_end == tabl.end())
-            return it_begin->second;
+            return -1.0;
         return map(it_begin->first, it_end->first, level_, it_begin->second, it_end->second);
     }
 

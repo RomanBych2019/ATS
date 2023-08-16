@@ -6,7 +6,7 @@
 static String nameBLE_ls = "TD_00000001";
 static bool doConnect_ = false;
 static NimBLEAdvertisedDevice *llsDevice_;
-const uint16_t scanTime_ = 5; // In seconds
+const uint16_t scanTime_ = 2; // In seconds
 
 class AdvertisedDeviceCallbacks : public NimBLEAdvertisedDeviceCallbacks
 {
@@ -79,7 +79,7 @@ private:
 public:
     LS_BLE()
     {
-        Serial.print("\n  - Create BLE\n");
+        // Serial.print("\n  - Create BLE\n");
         type_ = ILEVEL_SENSOR::BLE_ESKORT;
         level_start_ = MIN_ANALOGE_BLE_START;
         error_ = error::NO_ERROR;
@@ -97,6 +97,8 @@ public:
     void setNameBLE(const String &name) override
     {
         nameBLE_ls = name;
+        RSSI_ = 0;
+        level_ = 0;
     }
 
     const String getNameBLE() const override
@@ -136,7 +138,7 @@ public:
 
     void update() override
     {
-        Serial.println("Begin update BLE");
+        // Serial.println("Begin update BLE");
         if (nameBLE_ls == "" || error_ == error::NOT_FOUND)
             return;
 
@@ -159,7 +161,7 @@ public:
         set_error_();
         BLEScan_->clearResults(); // delete results fromBLEScan buffer to release memory
         flag_upgate_ = false;
-        Serial.println("End update BLE");
+        // Serial.println("End update BLE");
     }
 
     ~LS_BLE()
