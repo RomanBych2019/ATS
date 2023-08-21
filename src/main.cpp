@@ -428,10 +428,11 @@ void modePumpAuto()
 /*  ---------- Продолжение тарировки  ---------- */
 void proceedTarring()
 {
-  lls->getType() == ILEVEL_SENSOR::NO_LLS ? tar->saveResultRefuil() : tar->saveResultRefuil(lls->getLevel());
+  lls->getType() == ILEVEL_SENSOR::NO_LLS ? tar->saveResultRefuil() : tar->saveResultRefuil(lls->getLevel()); // запись результата пролива
   autostop = false;
   time_start_refill = millis();
   datemod.mode = TAR;
+  delay(10000); // пауза для передачи данных об начальном уровне топлива в новом проливе
   pump->on();
 }
 
@@ -585,12 +586,12 @@ void errors()
 /*  ---------- Функция подсчета импульсов с ДАРТ  ---------- */
 void rpmFun()
 {
-  if (micros() - duratiom_counter_imp > MIN_DURATION)
+  if (micros() - time_counter_imp > MIN_DURATION)
   {
     countV->setKcount();
     digitalWrite(INIDICATE_COUNT, !digitalRead(INIDICATE_COUNT));
   }
-  duratiom_counter_imp = micros();
+  time_counter_imp = micros();
 }
 
 /*  ---------- Парсинг полученых данных от дисплея Nextion  ---------- */
@@ -776,6 +777,7 @@ void onHMIEvent(String messege, String data, String response)
       tar->setTimePause(0);
     }
   }
+  
   if (messege == "clear_err")
   {
     switch (datemod.error)
@@ -785,7 +787,7 @@ void onHMIEvent(String messege, String data, String response)
       if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
         if (lls->getType() == ILEVEL_SENSOR::RS485)
         {
-          Serial.println("Дут RS485 потерян. Ищем...");
+          // Serial.println("Дут RS485 потерян. Ищем...");
           lls->searchLost();
         }
       autostop = false;
@@ -923,7 +925,6 @@ void modbus()
   }
   datemod.id1 = tar->getId_int();
   datemod.id2 = tar->getId_int() >> 16;
-  // Serial.print"Id: %s %d %d\n", tar->getId(), datemod.id1, datemod.id2);
   datemod.k_in_Litr = countV->getKinLitr();
   datemod.vtank = tar->getVTank() / 10;
   datemod.kRefill = tar->getNumRefill();
@@ -1226,8 +1227,7 @@ void getDataLog(AsyncWebServerRequest *request, String file)
 
 void delete_lls()
 {
-  Serial.println("Delete LLS");
-  // lls = nullptr;
+  // Serial.println("Delete LLS");
   if (lls->getType() == ILEVEL_SENSOR::BLE_ESKORT)
     lls->setNameBLE("");
   lls = lls_Empty;

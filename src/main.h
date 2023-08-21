@@ -1,7 +1,7 @@
 #pragma once
 
 // #define PRINTDEBUG
-#define verATP
+// #define verATP
 // #define verAnalogInput
 
 #include <Arduino.h>
@@ -102,7 +102,7 @@ union
 } datemod;
 
 int counter_display_resetring = 0;
-volatile long duratiom_counter_imp = 0;
+volatile unsigned time_counter_imp = 0;
 const long MIN_DURATION = 500;
 const uint16_t TIME_UPDATE_LLS = 10000;       // период обновления данных ДУТ
 const uint16_t TIME_UPDATE_HMI = 300;         // период обновления данных на дисплее, мсек
