@@ -16,10 +16,10 @@ void setup()
 
   Serial.begin(115200);
   serialLS.begin(19200, SERIAL_8N1, RXLS, TXLS);
-  serialHMI.begin(9600, SWSERIAL_8N1, RXDNEX, TXDNEX);
+  serialHMI.begin(19200, SWSERIAL_8N1, RXDNEX, TXDNEX);
   serialMB.begin(19200);
 
-  hmi.echoEnabled(true);
+  hmi.echoEnabled(false);
   hmi.hmiCallBack(onHMIEvent);
   hmi("rest");
 
@@ -32,7 +32,6 @@ void setup()
 #endif
 
   flash.begin("eerom", false);
-
   int k = flash.getInt("impulse_count", 1680); // чтение из eerom значения K счетчика
   countV = new COUNTER(k);
 
@@ -41,12 +40,13 @@ void setup()
   tar->setType(tarring::MANUAL);
   pump = new Out(OUT_PUMP);
 
-  datemod.mode = MENU;
+  // datemod.mode = MENU;
   lls_Empty = new LS_EMPTY();
   lls = lls_Empty;
 
   lls_RS485 = new LS_RS485(&serialLS, 1);
   lls_Ble = new LS_BLE();
+  lls_Ble->echoEnabled(true);
 
   pinMode(IN_KCOUNT, INPUT_PULLUP);           // инициализация входа импульсов ДАРТ
   attachInterrupt(IN_KCOUNT, rpmFun, CHANGE); // функция прерывания
@@ -77,7 +77,7 @@ void setup()
       NULL,                       /* Параметр задачи */
       1,                          /* Приоритет задачи */
       NULL,                       /* Идентификатор задачи, чтобы ее можно было отслеживать */
-      1);                         /* Ядро для выполнения задачи (0) */
+      tskNO_AFFINITY);                         /* Ядро для выполнения задачи (0) */
 
   xTaskCreatePinnedToCore(
       updateLS,        /* */
@@ -86,7 +86,7 @@ void setup()
       NULL,            /* Параметр задачи */
       1,               /* Приоритет задачи */
       NULL,            /* Идентификатор задачи, чтобы ее можно было отслеживать */
-      1);              /* Ядро для выполнения задачи (0) */
+      0);              /* Ядро для выполнения задачи (0) */
 
 #ifdef PRINTDEBUG
   xTaskCreatePinnedToCore(
@@ -106,16 +106,16 @@ void setup()
       NULL,               /* Параметр задачи */
       4,                  /* Приоритет задачи */
       NULL,               /* Идентификатор задачи, чтобы ее можно было отслеживать */
-      1);
+      tskNO_AFFINITY);
 
   xTaskCreatePinnedToCore(
       readNextion,        /* чтение данных от HMI */
       "Task_readNextion", /* Название задачи */
-      16384,               /* Размер стека задачи */
+      8192,               /* Размер стека задачи */
       NULL,               /* Параметр задачи */
       5,                  /* Приоритет задачи */
       NULL,               /* Идентификатор задачи, чтобы ее можно было отслеживать */
-      1);
+      tskNO_AFFINITY);
 
   wifiInit();
   server.begin();
@@ -283,7 +283,7 @@ void sendNextion(void *pvParameters)
         else if (datemod.error & ILEVEL_SENSOR::error::NOT_FOUND)
         {
           str = "ДУТ не найден\\rПроверте настройки и подключение ДУТ";
-          delete_lls();
+          // delete_lls();
         }
         else if (datemod.error & ILEVEL_SENSOR::error::LOST)
         {
@@ -514,6 +514,22 @@ void updateLS(void *pvParameters)
   vTaskDelete(NULL);
 }
 
+/*  ---------- Считывание данных с ДУТ  ---------- */
+void updateLS()
+{
+#ifdef verATP
+    if (datemod.mode == MENU)
+      lls_ATP->update();
+#endif
+
+    if (datemod.mode == TAR || datemod.mode == PAUSE || datemod.mode == COUNT)
+      if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
+      {
+        lls->update();
+        // test();
+      }
+}
+
 /*  ---------- Вычисление скорости потока  ---------- */
 void calculate_speedPump(void *pvParameters)
 {
@@ -549,7 +565,7 @@ void errors()
 
     if (tar->getType() == tarring::AUTO) //  если тарировка в автоматическом режиме
     {
-      if (tar->getCountReffil() > 3) // проверка увеличения данных с ДУТа в проливах
+      if (tar->getCountReffil() > 2) // проверка увеличения данных с ДУТа в проливах
       {
         if (tar->getNRefill(tar->getCountReffil() - 1) < 10 + tar->getNRefill(tar->getCountReffil() - 2))
           error |= 1 << 5;
@@ -569,14 +585,14 @@ void errors()
     {
       if (countV->getFlowRate() < 5)
       {
-        if (!(lls->getType() != ILEVEL_SENSOR::NO_LLS && lls->getType() == ILEVEL_SENSOR::type::BLE_ESKORT)) // если ДУТ BLE, скорость не контролируем
           error |= 1 << 6;
       }
     }
 
-  if (error && datemod.error != error)
+  if (error)
   {
-    Serial.printf("\nErr: %d", error);
+    // Serial.printf("\nErr: %d", error);
+    datemod.mode = MESSAGE;
     pump->off();
     hmi("page message");
     datemod.error = error;
@@ -780,23 +796,46 @@ void onHMIEvent(String messege, String data, String response)
   
   if (messege == "clear_err")
   {
-    switch (datemod.error)
-    {
-    case 8:
-      datemod.mode = TAR;
-      if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
-        if (lls->getType() == ILEVEL_SENSOR::RS485)
-        {
-          // Serial.println("Дут RS485 потерян. Ищем...");
-          lls->searchLost();
-        }
-      autostop = false;
-      break;
+    // switch (datemod.error)
+    // {
+    // case ILEVEL_SENSOR::NOT_FOUND:
+    //   datemod.mode = TAR;
+    //   if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
+    //     if (lls->getType() == ILEVEL_SENSOR::RS485)
+    //     {
+    //       Serial.println("Дут RS485 не найден. Ищем...");
+    //       lls->search();
+    //     }
+    //     if (lls->getType() == ILEVEL_SENSOR::BLE_ESKORT)
+    //     {
+    //       Serial.println("Дут BLE не найден. Ищем...");
+    //       lls->search();
+    //     }
+    //   datemod.error = 0;
+    //   autostop = false;
+    //   break;
+    // case ILEVEL_SENSOR::LOST:
+    //   datemod.mode = TAR;
+    //   if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
+    //     if (lls->getType() == ILEVEL_SENSOR::RS485)
+    //     {
+    //       Serial.println("Дут RS485 потерян. Ищем...");
+    //       lls->searchLost();
+    //     }
+    //     if (lls->getType() == ILEVEL_SENSOR::BLE_ESKORT)
+    //     {
+    //       Serial.println("Дут BLE потерян. Ищем...");
+    //       lls->search();
+    //     }
+    //   datemod.error = 0;
+    //   autostop = false;
+    //   break;
 
-    default:
-      break;
-    }
+    // default:
+    //   break;
+    // }
     datemod.error = 0;
+    lls->clearError();
   }
 }
 
@@ -1227,8 +1266,8 @@ void getDataLog(AsyncWebServerRequest *request, String file)
 
 void delete_lls()
 {
-  // Serial.println("Delete LLS");
+  Serial.println("Delete LLS");
   if (lls->getType() == ILEVEL_SENSOR::BLE_ESKORT)
-    lls->setNameBLE("");
+    lls->setNameBLE("TD_00000001");
   lls = lls_Empty;
 }

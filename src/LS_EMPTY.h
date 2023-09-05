@@ -41,6 +41,6 @@ public:
 
     ~LS_EMPTY()
     {
-        Serial.print("\n  - Kill empty\n");
+        // Serial.print("\n  - Kill empty\n");
     };
 };

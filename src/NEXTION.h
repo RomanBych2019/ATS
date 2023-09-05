@@ -5,7 +5,7 @@
 // #include <string>
 #include "SoftwareSerial.h"
 
-#define CMD_READ_TIMEOUT 250
+#define CMD_READ_TIMEOUT 200
 #define READ_TIMEOUT 50
 
 #define MIN_ASCII 32
@@ -29,7 +29,9 @@ private:
         uint16_t y_min_ = 50;
     } graph_;
 public:
-    NEXTION(SoftwareSerial &port) : _nextionSerial(&port) {}
+    NEXTION(SoftwareSerial &port) : _nextionSerial(&port) {
+        ((SoftwareSerial *)_nextionSerial)->listen(); // Start software serial listen
+    }
 
     void echoEnabled(bool echoEnabled)
     {
@@ -88,7 +90,6 @@ public:
             send("menu.b6.picc", 0);
             send("menu.b7.picc", 1);
             break;
-        
         default:
             break;
         }
@@ -241,6 +242,7 @@ private:
         _nextionSerial->write(0xff);
         _nextionSerial->write(0xff);
         _nextionSerial->write(0xff);
+        delay(1);
     }
 
     String checkHex(byte currentNo)
@@ -254,16 +256,13 @@ private:
 
     void handle()
     {
-        String response;
-        String messege;
-        String date;
+        String response{};
+        String messege{};
+        String date{};
         count_ff = 0;
         bool charEquals = false;
         unsigned long startTime = millis();
-        ((SoftwareSerial *)_nextionSerial)->listen(); // Start software serial listen
 
-        // while ((millis() - startTime < CMD_READ_TIMEOUT))
-        // {
         while (_nextionSerial->available())
         {
             int inc = _nextionSerial->read();
@@ -282,7 +281,7 @@ private:
             }
             else if (inc == 0x66)
             {
-                delay(3);
+                delay(1);
                 inc = _nextionSerial->read();
                 response.concat(checkHex(inc) + " ");
                 messege += String(inc, DEC);
@@ -321,16 +320,13 @@ private:
                 date.clear();
                 count_ff = 0;
                 charEquals = false;
+                return;
             }
             delay(3);
             
             if (millis() - startTime > CMD_READ_TIMEOUT)
                 return;
         }
-        // }
-        // return response;
-        // }
-        // return {};
     }
 
     String convertStringTime_(long date)
@@ -343,28 +339,28 @@ private:
         return temp;
     }
 
-String readNEXTION()
-    {
-        //* This has to only be enabled for Software serial
+// String readNEXTION()
+//     {
+//         //* This has to only be enabled for Software serial
 
-        // ((SoftwareSerial *)_nextionSerial)->listen(); // Start software serial listen
+//         // ((SoftwareSerial *)_nextionSerial)->listen(); // Start software serial listen
 
-        String resp;
-        unsigned long startTime = millis(); // Start time for Timeout
+//         String resp{};
+//         unsigned long startTime = millis(); // Start time for Timeout
 
-        while ((millis() - startTime < READ_TIMEOUT))
-        {
-            if (_nextionSerial->available() > 0)
-            {
-                int c = _nextionSerial->read();
-                resp.concat(" " + String(c, HEX));
-            }
-        }
-        if (_echo)
-        {
-            Serial.println("->> " + resp);
-        }
-        return resp;
-    }
+//         while ((millis() - startTime < READ_TIMEOUT))
+//         {
+//             if (_nextionSerial->available() > 0)
+//             {
+//                 int c = _nextionSerial->read();
+//                 resp.concat(" " + String(c, HEX));
+//             }
+//         }
+//         if (_echo)
+//         {
+//             Serial.println("->> " + resp);
+//         }
+//         return resp;
+//     }
 
 };

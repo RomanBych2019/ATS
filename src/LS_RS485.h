@@ -18,7 +18,7 @@ private:
     {
         if (netadress_ == 0xFF)
             return;
-        Serial.printf("\nUpdate RS485 adr: %d\n", netadress_);
+        // Serial.printf("\nUpdate RS485 adr: %d\n", netadress_);
         doConnect_ = false;
         std::vector<uint8_t> bufferRead485{};
         uint8_t rs485TransmitArray[] = {0x31, 0x00, 0x06, 0x00};
@@ -31,7 +31,7 @@ private:
             while (port_->available())
             {
                 bufferRead485.push_back(port_->read());
-                delay(5);
+                delay(1);
             }
             if (bufferRead485.size() >= 9)
             {
@@ -45,7 +45,7 @@ private:
                 }
             }
             bufferRead485.clear();
-            delay(50);
+            delay(100);
         }
         level_ = 5000;
         set_error_();
@@ -57,32 +57,34 @@ private:
         if (netadress_ == 0xFF) // ДУТ не найден
         {
             counter_errror_++;
-            if (counter_errror_ > COUNT_SEARCH_ERROR)
+            if (counter_errror_ > COUNT_ERROR)
                 error_ = error::NOT_FOUND;
         }
         else if (!doConnect_) // ДУТ потерян
         {
             counter_errror_++;
-            if (counter_errror_ > COUNT_SEARCH_ERROR)
+            if (counter_errror_ > COUNT_ERROR)
+            {
                 error_ = error::LOST;
+                return;
+            }
         }
 
         else if (level_ < MIN_DIGITAL_N)
         {
             counter_errror_++;
-            if (counter_errror_ > COUNT_SEARCH_ERROR)
+            if (counter_errror_ > COUNT_ERROR)
                 error_ = error::CLIFF;
         }
         else if (level_ >= MAX_DIGITAL_N)
         {
             counter_errror_++;
-            if (counter_errror_ > COUNT_SEARCH_ERROR)
+            if (counter_errror_ > COUNT_ERROR)
                 error_ = error::CLOSURE; // показания датчика выше нормы (неисправность датчика)
         }
         else
         {
-            counter_errror_ = 0;
-            error_ = error::NO_ERROR;
+            clearError();
         }
     }
 
@@ -117,8 +119,7 @@ public:
         // flag_upgate_ = true;
         for (uint j = 0; j < 10; j++)
         {
-        error_ = error::NO_ERROR;
-        counter_errror_ = 0;
+            clearError();
             netadress_ = j;
             update_();
             if (doConnect_)
@@ -131,7 +132,6 @@ public:
         return false;
     }
 
-
     const bool searchLost() override
     {
         // Serial.print("\nSearch RS485\n");
@@ -142,7 +142,7 @@ public:
             update_();
             if (doConnect_)
             {
-                error_ = error::NO_ERROR;
+                clearError();
                 return true;
             }
         }
@@ -183,9 +183,8 @@ private:
     }
 
 public:
-    ~LS_RS485()
-    {
-        Serial.print("\n  - Kill rs485\n");
+    ~LS_RS485(){
+        // Serial.print("\n  - Kill rs485\n");
     };
 };
 const uint8_t LS_RS485::DSCRC_TABLE[] = {

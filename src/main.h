@@ -33,10 +33,6 @@
 #include "LS_BLE.h"
 #include "LS_EMPTY.h"
 
-#ifdef verATP
-#include "LS_RS485.h"
-#endif
-
 #define serialLS Serial1
 #define serialMB Serial2
 
@@ -105,14 +101,14 @@ int counter_display_resetring = 0;
 volatile unsigned time_counter_imp = 0;
 const long MIN_DURATION = 500;
 const uint16_t TIME_UPDATE_LLS = 10000;       // период обновления данных ДУТ
-const uint16_t TIME_UPDATE_HMI = 300;         // период обновления данных на дисплее, мсек
+const uint16_t TIME_UPDATE_HMI = 250;         // период обновления данных на дисплее, мсек
 const uint16_t TIME_UPDATE_SPEED_PUMP = 2000; // период обновления скорости потока
 const uint16_t TIME_PAUSE_END_TAR = 20000;    // пауза в конце тарировки для передаче данных в систему мониторинга
 
-unsigned long start_pause, worktime, time_start_refill;
+unsigned long start_pause, worktime, time_start_refill, time_LLS_update;
 bool autostop = false;
-bool flag_dell_lls = false; // флаг необходимости удаления lls
-bool flag_HMI_send = false; // ф
+// bool flag_dell_lls = false; // флаг необходимости удаления lls
+bool flag_HMI_send = false; 
 
 const char *LOG_FILE_NAME = "log.csv";
 
@@ -126,7 +122,6 @@ void modePumpAuto();
 void endTarring();
 void endRefill();
 void proceedTarring();
-void modeSetting();
 void errors();
 void modbus();
 void digitalpause();
@@ -147,6 +142,7 @@ String listDir(fs::FS &fs, const char *dirname, uint8_t levels);
 void getDataLog(AsyncWebServerRequest *request, String file);
 
 void updateLS(void *pvParameters);
+void updateLS();
 void sendNextion(void *pvParameters);
 void readNextion(void *pvParameters);
 void calculate_speedPump(void *pvParameters);
@@ -161,7 +157,6 @@ LS_ANALOG_U *lls_analog_f;
 #endif
 Preferences flash;
 SoftwareSerial serialHMI;
-// SoftwareSerial serialLS;
 
 // void test();
 

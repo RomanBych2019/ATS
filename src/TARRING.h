@@ -125,7 +125,7 @@ public:
         v_total_.push_back(str);
         v_ref_.push_back(getVfuel());
         n_ref_.push_back(n);
-        Serial.printf("\n%s\n", str);
+        // Serial.printf("\n%s\n", str);
     }
 
 // выдача результатов пролива i
