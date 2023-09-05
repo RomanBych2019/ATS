@@ -6,18 +6,19 @@
 static String nameBLE_ls = "TD_00000001";
 static bool doConnect_ = false;
 static NimBLEAdvertisedDevice *llsDevice_;
-const uint16_t scanTime_ = 2; // In seconds
+
+const uint16_t scanTime_ = 90; // In seconds
 
 class AdvertisedDeviceCallbacks : public NimBLEAdvertisedDeviceCallbacks
 {
     void onResult(NimBLEAdvertisedDevice *advertisedDevice)
     {
-        Serial.printf("\nAdvertised Device found: %s\n", advertisedDevice->toString().c_str());
+        // Serial.printf("Advertised Device found: %s\n", advertisedDevice->toString().c_str());
         if (advertisedDevice->getName() == nameBLE_ls.c_str())
         {
             doConnect_ = true;
             llsDevice_ = advertisedDevice;
-            // Serial.printf("\n - Found our LLS: %s", llsDevice_->toString().c_str());
+            Serial.printf("Found our LLS: %s\n", llsDevice_->toString().c_str());
             NimBLEDevice::getScan()->stop();
         }
     };
@@ -32,6 +33,7 @@ private:
     BLEScan *BLEScan_;
     boolean _doConnect = false;
     String ManufacturerData = {};
+    bool _echo = false;
 
     void buildData(uint8_t *source, uint8_t length)
     {
@@ -54,25 +56,27 @@ private:
         if (!doConnect_)
         {
             counter_errror_++;
-            if (counter_errror_ > COUNT_SEARCH_ERROR) // ДУТ не найден
+            if (counter_errror_ > COUNT_ERROR) // ДУТ не найден
+            {
                 error_ = error::LOST;
+                return;
+            }
         }
-        if (level_ < MIN_DIGITAL_B)
+        else if (level_ < MIN_DIGITAL_B)
         {
             counter_errror_++;
-            if (counter_errror_ > COUNT_SEARCH_ERROR)
+            if (counter_errror_ > COUNT_ERROR)
                 error_ = error::CLIFF;
         }
         else if (level_ > MAX_DIGITAL_B)
         {
             counter_errror_++;
-            if (counter_errror_ > COUNT_SEARCH_ERROR)
+            if (counter_errror_ > COUNT_ERROR)
                 error_ = error::CLOSURE; // показания датчика выше нормы (неисправность датчика)
         }
         else
         {
-            counter_errror_ = 0;
-            error_ = error::NO_ERROR;
+            clearError();
         }
     }
 
@@ -82,7 +86,7 @@ public:
         // Serial.print("\n  - Create BLE\n");
         type_ = ILEVEL_SENSOR::BLE_ESKORT;
         level_start_ = MIN_ANALOGE_BLE_START;
-        error_ = error::NO_ERROR;
+        clearError();
         nameBLE_ls = "";
 
         //  --------------------BLE-------------------
@@ -90,8 +94,9 @@ public:
         BLEScan_ = BLEDevice::getScan(); // create new scan
         BLEScan_->setAdvertisedDeviceCallbacks(new AdvertisedDeviceCallbacks());
         BLEScan_->setActiveScan(true); // active scan uses more power, but get results faster
-        BLEScan_->setInterval(100);
-        BLEScan_->setWindow(99); // less or equal setInterval value
+        BLEScan_->setInterval(97);
+        BLEScan_->setWindow(37);    // less or equal setInterval value
+        BLEScan_->setMaxResults(0); // do not store the scan results, use callback only.
     }
 
     void setNameBLE(const String &name) override
@@ -129,29 +134,47 @@ public:
 
     const bool search() override
     {
-        error_ = error::NO_ERROR;
-        update();
+        clearError();
+        if (BLEScan_->isScanning())
+        {
+            if (_echo)
+            {
+                Serial.print(millis() / 1000);
+                Serial.print(" | ");
+                Serial.print("Stop scan\n");
+            }
+            NimBLEDevice::getScan()->stop();
+        }
+        else
+            update();
+
         if (!doConnect_)
             error_ = error::NOT_FOUND;
+
         return true;
     }
 
     void update() override
     {
-        // Serial.println("Begin update BLE");
-        if (nameBLE_ls == "" || error_ == error::NOT_FOUND)
+        if (nameBLE_ls == "")
             return;
 
-        if (flag_upgate_)
+        if (BLEScan_->isScanning())
             return;
 
-        flag_upgate_ = true;
         doConnect_ = false;
+        if (_echo)
+        {
+            Serial.print(millis() / 1000);
+            Serial.print(" | ");
+            Serial.print("Start scan BLE " + nameBLE_ls + "\n");
+        }
+
         BLEScanResults foundDevices = BLEScan_->start(scanTime_, false);
 
         if (doConnect_)
         {
-            error_ = error::NO_ERROR;
+            clearError();
             RSSI_ = llsDevice_->getRSSI();
             std::string DataBLE = llsDevice_->getManufacturerData();
             buildData((uint8_t *)DataBLE.data(), DataBLE.length());
@@ -160,14 +183,21 @@ public:
         }
         set_error_();
         BLEScan_->clearResults(); // delete results fromBLEScan buffer to release memory
-        flag_upgate_ = false;
-        // Serial.println("End update BLE");
+        if (_echo)
+        {
+            Serial.print(millis() / 1000);
+            Serial.print(" | ");
+            Serial.print("End scan BLE\n\n");
+        }
+    }
+    void echoEnabled(bool echoEnabled)
+    {
+        _echo = echoEnabled;
     }
 
-    ~LS_BLE()
-    {
-        Serial.print("\n  - Kill ble\n");
-    //     BLEScan_->stop();
-    //     BLEScan_->clearResults(); // delete results fromBLEScan buffer to release memory
+    ~LS_BLE(){
+        // Serial.print("\n  - Kill ble\n");
+        //     BLEScan_->stop();
+        //     BLEScan_->clearResults(); // delete results fromBLEScan buffer to release memory
     };
 };
