@@ -171,7 +171,7 @@ private:
             crc = pgm_read_byte(DSCRC_TABLE + (crc ^ *addr++));
         return crc;
     }
-    // функция вычисления контрольной суммы
+    // функция проверки целостности сообщения по контрольной сумме
     bool controlCrc8(std::vector<uint8_t> &buf)
     {
         uint8_t crc = 0;
