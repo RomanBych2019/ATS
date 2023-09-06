@@ -192,7 +192,7 @@ public:
             }
             flag = true;
         }
-        send("t_end.j0.val", j0);
+        // send("t_end.j0.val", j0);
     }
 
     //  данные на экране Окончания тарировки при ручной тарировке (без вывода графика тарировки)
@@ -203,9 +203,9 @@ public:
             send("t_end.t0.txt", t0);
             flag = true;
         }
-        send("t_end.j0.val", j0);
+        // send("t_end.j0.val", j0);
     }
-
+//  данные на экране Поиск BLE
     void sendScreenSearch_BLE(String const &t1) const
     {
         if (t1.endsWith("ДУТ не найден"))
@@ -322,7 +322,7 @@ private:
                 charEquals = false;
                 return;
             }
-            delay(3);
+            delay(1);
             
             if (millis() - startTime > CMD_READ_TIMEOUT)
                 return;

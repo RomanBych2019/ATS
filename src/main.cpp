@@ -19,7 +19,7 @@ void setup()
   serialHMI.begin(19200, SWSERIAL_8N1, RXDNEX, TXDNEX);
   serialMB.begin(19200);
 
-  hmi.echoEnabled(false);
+  hmi.echoEnabled(true);
   hmi.hmiCallBack(onHMIEvent);
   hmi("rest");
 
@@ -46,7 +46,7 @@ void setup()
 
   lls_RS485 = new LS_RS485(&serialLS, 1);
   lls_Ble = new LS_BLE();
-  lls_Ble->echoEnabled(true);
+  lls_Ble->echoEnabled(false);
 
   pinMode(IN_KCOUNT, INPUT_PULLUP);           // инициализация входа импульсов ДАРТ
   attachInterrupt(IN_KCOUNT, rpmFun, CHANGE); // функция прерывания
