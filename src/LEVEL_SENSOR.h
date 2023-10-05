@@ -10,7 +10,6 @@ protected:
     std::vector<uint16_t> v_level_; // вектор последних значений уровня
     uint8_t v_count_ = 0;
     static const uint8_t COUNT_ERROR = 5; // максимальное количество ошибок
-    bool flag_upgate_ = false;                    // флаг нахождения в функции update
     uint16_t level_start_;
 
     ILEVEL_SENSOR()
@@ -29,7 +28,7 @@ protected:
     virtual void set_error_() = 0;
 
 public:
-    static const int MAX_SIZE = 5; // размер буфера данных от ДУТ
+    static const int MAX_SIZE = 4; // размер буфера данных от ДУТ
 
     static const uint16_t MIN_ANALOGE_U = 8;    // минимальное напряжение на рабочем ДУТ (аналог, напряжение в 0.01 В)
     static const uint16_t MAX_ANALOGE_U = 2000; // максимальное напряжение на рабочем ДУТ (аналог, напряжение в 0.01 В)
@@ -76,11 +75,6 @@ public:
         return level_start_;
     }
 
-    const bool getFlagUpgate() const
-    {
-        return flag_upgate_;
-    }
-
     const type getType() const
     {
         return type_;
@@ -91,7 +85,7 @@ public:
         return error_;
     }
 
-    virtual void update() = 0;
+    virtual bool update() = 0;
 
     virtual const bool searchLost(){};
 
@@ -104,7 +98,7 @@ public:
 
     virtual const bool search() = 0;
 
-    virtual void setNameBLE(const String &name)
+    virtual void newBLE(const String &name)
     {
     }
 
@@ -121,6 +115,11 @@ public:
     virtual std::vector<uint16_t> *getVecLevel()
     {
         return &v_level_;
+    }
+
+    void resetVecLevel()
+    {
+        v_level_.clear();
     }
 
     void test()
@@ -147,6 +146,8 @@ public:
                 v_count_ = 1;
             }
         }
+                // Serial.printf("Добавление записи ДУТ: %d\n", v_level_.size());
+
     }
 
     virtual const int16_t getRSSI() const
@@ -165,10 +166,12 @@ public:
         counter_errror_ = 0;
     }
 
+
     virtual ~ILEVEL_SENSOR()
     {
         // Serial.print("\n  - Kill lls\n");
     }
+
 
 protected:
     type type_;

@@ -39,15 +39,8 @@ private:
     const int PUMPSPEED = 440; // скорость потока 10*литр/минута для вычисления времени тарировки
     COUNTER *countV_;
     TANK *tank_;
-    tarring::mode mode_;
 
 public:
-    TARRING()
-    {
-        v_ref_.reserve(MAX_SIZE);
-        n_ref_.reserve(MAX_SIZE);
-        v_total_.reserve(MAX_SIZE);
-    }
 
     TARRING(COUNTER *count, TANK *tank) : countV_(count), tank_(tank)
     {
@@ -55,6 +48,7 @@ public:
         n_ref_.reserve(MAX_SIZE);
         v_total_.reserve(MAX_SIZE);
     }
+    
 
     std::vector<uint32_t> *getNRefill()
     {
@@ -119,31 +113,40 @@ public:
     }
 
 //запись результатов пролива
-    void saveResultRefuil(uint16_t n = 0)
+    void saveResultRefuil(ILEVEL_SENSOR *lls)
     {
-        String str = String(getCountReffil()) + "," + String(n) + "," + String(getVfuel() / 10.0, 1);
+        String str = String(getCountReffil()) + "," + String(lls->getLevel()) + "," + String(getVfuel() / 10.0, 1);
         v_total_.push_back(str);
         v_ref_.push_back(getVfuel());
-        n_ref_.push_back(n);
-        // Serial.printf("\n%s\n", str);
+        n_ref_.push_back(lls->getLevel());
+
+        // Serial.printf("Тип ДУТ: %d\n", lls->getType()); 
+        // Serial.printf("Размер вектора до: %d\n", lls->getVecLevel()->size());   
+
+        lls->resetVecLevel();
+        
+        // Serial.printf("Размер вектора после: %d\n", lls->getVecLevel()->size());    
+        // Serial.printf("Пролив: %s\n", str);
+    }
+
+    //удаление результатов пролива
+    void deleteResultRefuil(ILEVEL_SENSOR *lls)
+    {
+        if (v_total_.size())
+            v_total_.pop_back();
+        if (v_ref_.size())
+            v_ref_.pop_back();
+        if (n_ref_.size())    
+            n_ref_.pop_back();
+
+        // Serial.printf("Удаление последнего результата\n");
+        lls->resetVecLevel();
     }
 
 // выдача результатов пролива i
     String getResultRefill(int i)
     {
         return v_total_.at(i);
-    }
-
-    // выдача режима тарировки
-    const tarring::mode getType()
-    {
-        return mode_;
-    }
-
-    // установка режима тарировки
-    void setType(tarring::mode m)
-    {
-        mode_ = m;
     }
 
     //  выдача объема топлива в баке
@@ -189,11 +192,12 @@ public:
     // получить общее время тарировки
     const uint32_t getTimeTarring()
     {
-        if (getVTank() - getVfuel() > 0 && num_reffil_ >= getCountReffil())
-            if (mode_ == tarring::MANUAL)
+        if (getVTank() > getVfuel() && num_reffil_ >= getCountReffil())
+            // if (mode_ == tarring::MANUAL)
+            if (time_pause_ != 0)
                 return time_pause_ * (num_reffil_ - getCountReffil()) + (getVTank() - getVfuel()) / PUMPSPEED;
             else
-                return num_reffil_ - getCountReffil() + (getVTank() - getVfuel()) / PUMPSPEED;
+                return 2 * (num_reffil_ - getCountReffil()) + (getVTank() - getVfuel()) / PUMPSPEED;
         else
             return 0;
     }
@@ -201,10 +205,9 @@ public:
     // сброс настроек тарировки
     void reset()
     {
-        mode_ = tarring::MANUAL;
         refill_ = 0;
         vtank_refill_ = 0;
-        time_pause_ = 3;
+        time_pause_ = 0;
         num_reffil_ = 0;
         tank_->reset();
         n_ref_.clear();

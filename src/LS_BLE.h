@@ -7,7 +7,9 @@ static String nameBLE_ls = "TD_00000001";
 static bool doConnect_ = false;
 static NimBLEAdvertisedDevice *llsDevice_;
 
-const uint16_t scanTime_ = 90; // In seconds
+const uint16_t SCANTIME = 9; // 9 seconds
+uint16_t scanTime_ = SCANTIME; // время непрерывного сканирования
+
 
 class AdvertisedDeviceCallbacks : public NimBLEAdvertisedDeviceCallbacks
 {
@@ -99,8 +101,15 @@ public:
         BLEScan_->setMaxResults(0); // do not store the scan results, use callback only.
     }
 
-    void setNameBLE(const String &name) override
+    void newBLE(const String &name = "") override
     {
+        if (BLEScan_->isScanning())
+        {
+                NimBLEDevice::getScan()->stop();
+                BLEScan_->clearResults(); // delete results fromBLEScan buffer to release memory
+                // return false;
+                delay(10);
+        }
         nameBLE_ls = name;
         RSSI_ = 0;
         level_ = 0;
@@ -135,6 +144,7 @@ public:
     const bool search() override
     {
         clearError();
+        scanTime_ = 61;
         if (BLEScan_->isScanning())
         {
             if (_echo)
@@ -150,17 +160,17 @@ public:
 
         if (!doConnect_)
             error_ = error::NOT_FOUND;
-
+        scanTime_ = SCANTIME;
         return true;
     }
 
-    void update() override
+    bool update() override
     {
         if (nameBLE_ls == "")
-            return;
+            return false;
 
         if (BLEScan_->isScanning())
-            return;
+            return false;
 
         doConnect_ = false;
         if (_echo)
@@ -189,7 +199,9 @@ public:
             Serial.print(" | ");
             Serial.print("End scan BLE\n\n");
         }
+        return doConnect_?  true:  false;
     }
+
     void echoEnabled(bool echoEnabled)
     {
         _echo = echoEnabled;

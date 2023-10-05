@@ -1,8 +1,8 @@
 #pragma once
 
 // #define PRINTDEBUG
-// #define verATP
-// #define verAnalogInput
+#define verATP
+#define verAnalogInput
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -107,8 +107,8 @@ const uint16_t TIME_PAUSE_END_TAR = 20000;    // пауза в конце тар
 
 unsigned long start_pause, worktime, time_start_refill, time_LLS_update;
 bool autostop = false;
-// bool flag_dell_lls = false; // флаг необходимости удаления lls
 bool flag_HMI_send = false; 
+bool flag_conect_ok = true; // флаг удачного получения данных от ДУТ
 
 const char *LOG_FILE_NAME = "log.csv";
 
@@ -149,11 +149,14 @@ void calculate_speedPump(void *pvParameters);
 void onHMIEvent(String messege, String data, String response);
 void printDebugLog(void *pvParameters);
 
+hw_timer_t *My_timer = NULL;
+void IRAM_ATTR onTimer();
+
 RtcDS3231<TwoWire> Rtc(Wire);
 #ifdef verAnalogInput
 Adafruit_ADS1115 ads; /* Use this for the 16-bit version */
-LS_ANALOG_F *lls_analog_u;
-LS_ANALOG_U *lls_analog_f;
+LS_ANALOG_F *lls_analog_f;
+LS_ANALOG_U *lls_analog_u;
 #endif
 Preferences flash;
 SoftwareSerial serialHMI;

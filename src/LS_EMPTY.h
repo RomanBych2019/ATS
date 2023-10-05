@@ -25,8 +25,9 @@ public:
         return {};
     }
 
-    void update() override
+    bool update() override
     {    
+        return false;
     }
 
     const bool search() override

@@ -14,10 +14,10 @@ private:
 
     static const uint8_t PROGMEM DSCRC_TABLE[];
 
-    void update_()
+    bool update_()
     {
         if (netadress_ == 0xFF)
-            return;
+            return false;
         // Serial.printf("\nUpdate RS485 adr: %d\n", netadress_);
         doConnect_ = false;
         std::vector<uint8_t> bufferRead485{};
@@ -39,9 +39,9 @@ private:
                 {
                     level_ = bufferRead485[5] << 8 | bufferRead485[4];
                     setVLevel();
-                    set_error_();
                     doConnect_ = true;
-                    return;
+                    set_error_();
+                    return true;
                 }
             }
             bufferRead485.clear();
@@ -49,6 +49,7 @@ private:
         }
         level_ = 5000;
         set_error_();
+        return false;
     }
 
     // ошибки
@@ -107,10 +108,11 @@ public:
         return netadress_;
     }
 
-    void update() override
+    bool update() override
     {
-        update_();
-        set_error_();
+        bool res = update_();
+        // set_error_();
+        return res;
     }
 
     const bool search() override

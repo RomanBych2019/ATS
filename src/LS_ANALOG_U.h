@@ -21,13 +21,13 @@ private:
         if (level_ < MIN_ANALOGE_U)
         {
             counter_errror_++;
-            if (counter_errror_ > COUNT_SEARCH_ERROR)
+            if (counter_errror_ > COUNT_ERROR)
                 error_ = error::NOT_FOUND; // обрыв датчика
         }
         else if (level_ > MAX_ANALOGE_U)
         {
             counter_errror_++;
-            if (counter_errror_ > COUNT_SEARCH_ERROR)
+            if (counter_errror_ > COUNT_ERROR)
                 error_ = error::CLOSURE; // показания датчика выше нормы (замыкание на питание)
         }
         else
@@ -54,9 +54,8 @@ public:
     }
 
     // обновление показаний
-    void update() override
+    bool update() override
     {
-        flag_upgate_ = true;
         if (GPIO_)
             val_ = analogRead(GPIO_);
         else
@@ -70,18 +69,16 @@ public:
             level_ = 0;
         else
             level_ = constrain(map(median_, 145, 22330, 17, 1843), 0, MAX_ANALOGE_U);
-
-        // Serial.printf("\n\t-Analoge_U:  %d:   %d", val_, level_);
-
+        // Serial.printf("Analoge_U:  %d:   %d\n", val_, level_);
         setVLevel();
         set_error_();
-        flag_upgate_ = false;
+        return level_ > MIN_ANALOGE_U? true: false;
     }
 
     const bool search() override
     {
         // Serial.print("\nSearch AnalogeU\n");
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < 6; i++)
         {
             update();
             delay(100);

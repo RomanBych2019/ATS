@@ -54,13 +54,13 @@ private:
         if (level_ < MIN_ANALOGE_F)
         {
             counter_errror_++;
-            if (counter_errror_ > COUNT_SEARCH_ERROR)
+            if (counter_errror_ > COUNT_ERROR)
                 error_ = error::NOT_FOUND; // обрыв датчика
         }
         else if (level_ > MAX_ANALOGE_F)
         {
             counter_errror_++;
-            if (counter_errror_ > COUNT_SEARCH_ERROR)
+            if (counter_errror_ > COUNT_ERROR)
                 error_ = error::CLOSURE; // показания датчика выше нормы (знеисправность датчика)
         }
         else
@@ -91,10 +91,8 @@ public:
     }
 
     // обновление показаний
-    void update() override
+    bool update() override
     {
-        flag_upgate_ = true;
-
         val_ = f_;
         oldest_ = recent_;
         recent_ = newest_;
@@ -103,14 +101,14 @@ public:
         level_ = median_;
         setVLevel();
         set_error_();
+        return  level_ > MIN_ANALOGE_F? true: false; 
         // Serial.printf("\nAnalogeF: %d Hz", median_);
-        flag_upgate_ = false;
     }
 
     const bool search() override
     {
         // Serial.print("\nSearch AnalogeF\n");
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < 6; i++)
         {
             update();
             delay(100);

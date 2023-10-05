@@ -149,7 +149,7 @@ public:
     }
 
     //  данные на экране Тарировка
-    void sendScreenTarring(uint32_t const x0, uint32_t const x1, uint n1, uint const n2, uint16_t const x3, String const &t0, uint16_t const t7, char const j0, uint16_t const t6)
+    void sendScreenTarring(uint32_t const x0, uint32_t const x1, uint n1, uint const n2, uint16_t const x3, String const &t0, uint16_t const t7, char const j0, uint16_t const t6, bool flag_conect_ok)
     {
         send("tar.x0.val", x0);
         send("tar.x1.val", x1);
@@ -161,8 +161,12 @@ public:
         send("tar.j0.val", j0);
         send("tar.x3.val", x3);
         send("tar.t0.txt", t0);
+        send ("tar.t0.pco", flag_conect_ok?  38495: 63488); // цвет данных от ДУТ в завиимости от состояния связи с ДУТ
+
         if (t6 == 0)
+        {
             send("tar.t6.txt", "AUTO");
+        }
         else
         {
             dateConvert = convertStringTime_(t6);
@@ -338,29 +342,4 @@ private:
         temp += String(date % 60, DEC);
         return temp;
     }
-
-// String readNEXTION()
-//     {
-//         //* This has to only be enabled for Software serial
-
-//         // ((SoftwareSerial *)_nextionSerial)->listen(); // Start software serial listen
-
-//         String resp{};
-//         unsigned long startTime = millis(); // Start time for Timeout
-
-//         while ((millis() - startTime < READ_TIMEOUT))
-//         {
-//             if (_nextionSerial->available() > 0)
-//             {
-//                 int c = _nextionSerial->read();
-//                 resp.concat(" " + String(c, HEX));
-//             }
-//         }
-//         if (_echo)
-//         {
-//             Serial.println("->> " + resp);
-//         }
-//         return resp;
-//     }
-
 };
