@@ -26,7 +26,6 @@ void update_Frequence(void *pvParameters)
         count_old_ = count_;
         f_ = d_ * 500000.0 / period_;
         // Serial.printf("\nCoout %d | Period: %d | AnalogeF: %f Hz", d_, period_, f_);
-        
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
@@ -38,12 +37,10 @@ private:
 
 #ifdef PLATE_TEST
     const uint INPUTPIN_ = 35;
-    const uint INDIPIN_ = 25;
 #endif
 
 #ifdef PLATE_v1
     static const uint INPUTPIN_ = 34;
-    static const uint INDIPIN_ = 25;
 #endif
 
     TaskHandle_t update_Frequence_ = NULL;
@@ -73,11 +70,8 @@ private:
 public:
     LS_ANALOG_F() // конструктор для каналов F (35)
     {
-        // Serial.print("\n  - Create AnalogeF");
         type_ = ILEVEL_SENSOR::ANALOGE_F;
-        pinMode(INPUTPIN_, INPUT_PULLUP);
-        pinMode(INDIPIN_, OUTPUT);
-        digitalWrite(INDIPIN_, HIGH);
+        pinMode(INPUTPIN_, INPUT);
         attachInterrupt(INPUTPIN_, rpm, CHANGE);
         xTaskCreatePinnedToCore(
             update_Frequence,
@@ -108,10 +102,10 @@ public:
     const bool search() override
     {
         // Serial.print("\nSearch AnalogeF\n");
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 8; i++)
         {
             update();
-            delay(100);
+            delay(1100);
         }
         return !error_;
     }
@@ -122,6 +116,5 @@ public:
         if (update_Frequence_ != NULL)
             vTaskDelete(update_Frequence_);
         detachInterrupt(INPUTPIN_);
-        digitalWrite(INDIPIN_, LOW);
     };
 };

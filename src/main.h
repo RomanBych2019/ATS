@@ -16,7 +16,8 @@
 #include <SPIFFS.h>
 #include <SPIFFSEditor.h>
 #include "Preferences.h"
-#include "SoftwareSerial.h"
+// #include "SoftwareSerial.h" 
+#include <SoftwareSerial.h>
 #include <SimpleModbusSlave_DUE.h>
 #include <RtcDS3231.h>
 #ifdef verAnalogInput
@@ -93,6 +94,7 @@ union
     unsigned int error;         //  19  код ошибки
     unsigned int rssi;          //  20  RSSI ДУТ BLE
     unsigned int llsATP;        //  21  N ДУТа емкости АПТ (lls adr=100)
+    bool controlFlowrate;       //  22  Флаг контроля скорости потока
   };
   unsigned int au16data[SIZE];
 } datemod;
@@ -101,7 +103,7 @@ int counter_display_resetring = 0;
 volatile unsigned time_counter_imp = 0;
 const long MIN_DURATION = 500;
 const uint16_t TIME_UPDATE_LLS = 10000;       // период обновления данных ДУТ
-const uint16_t TIME_UPDATE_HMI = 250;         // период обновления данных на дисплее, мсек
+const uint16_t TIME_UPDATE_HMI = 300;         // период обновления данных на дисплее, мсек
 const uint16_t TIME_UPDATE_SPEED_PUMP = 2000; // период обновления скорости потока
 const uint16_t TIME_PAUSE_END_TAR = 20000;    // пауза в конце тарировки для передаче данных в систему мониторинга
 
@@ -159,7 +161,7 @@ LS_ANALOG_F *lls_analog_f;
 LS_ANALOG_U *lls_analog_u;
 #endif
 Preferences flash;
-SoftwareSerial serialHMI;
+EspSoftwareSerial::UART serialHMI;
 
 // void test();
 

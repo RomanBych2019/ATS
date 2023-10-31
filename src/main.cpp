@@ -18,7 +18,8 @@ void setup()
 
     Serial.begin(115200);
     serialLS.begin(19200, SERIAL_8N1, RXLS, TXLS);
-    serialHMI.begin(19200, SWSERIAL_8N1, RXDNEX, TXDNEX);
+    serialHMI.begin(19200, SWSERIAL_8N1, RXDNEX, TXDNEX, false, 256);
+
     serialMB.begin(19200);
 
     hmi.echoEnabled(false);
@@ -81,7 +82,7 @@ void setup()
         NULL,                       /* Параметр задачи */
         1,                          /* Приоритет задачи */
         NULL,                       /* Идентификатор задачи, чтобы ее можно было отслеживать */
-        tskNO_AFFINITY);            /* Ядро для выполнения задачи (0) */
+        1);                         /* Ядро для выполнения задачи (0) */
 
     xTaskCreatePinnedToCore(
         updateLS,        /* */
@@ -90,7 +91,7 @@ void setup()
         NULL,            /* Параметр задачи */
         1,               /* Приоритет задачи */
         NULL,            /* Идентификатор задачи, чтобы ее можно было отслеживать */
-        0);              /* Ядро для выполнения задачи (0) */
+        1);              /* Ядро для выполнения задачи (0) */
 
 #ifdef PRINTDEBUG
     xTaskCreatePinnedToCore(
@@ -110,7 +111,7 @@ void setup()
         NULL,               /* Параметр задачи */
         4,                  /* Приоритет задачи */
         NULL,               /* Идентификатор задачи, чтобы ее можно было отслеживать */
-        tskNO_AFFINITY);
+        1);
 
     xTaskCreatePinnedToCore(
         readNextion,        /* чтение данных от HMI */
@@ -119,13 +120,14 @@ void setup()
         NULL,               /* Параметр задачи */
         5,                  /* Приоритет задачи */
         NULL,               /* Идентификатор задачи, чтобы ее можно было отслеживать */
-        tskNO_AFFINITY);
+        1);
 
     wifiInit();
     server.begin();
     AsyncElegantOTA.begin(&server); // Start ElegantOTA
 
     digitalWrite(INDI_F_PIN_, LOW);
+    datemod.controlFlowrate = true;
 
     // таймер для светодиода индикации счетчика
     My_timer = timerBegin(0, 80, true);
@@ -164,6 +166,11 @@ void loop()
     case SEARCH_BLE:
         break;
     }
+
+    if (lls->getType() == ILEVEL_SENSOR::ANALOGE_F)
+        digitalWrite(INDI_F_PIN_, HIGH);
+    else
+        digitalWrite(INDI_F_PIN_, LOW);
 }
 
 // void test()
@@ -291,7 +298,6 @@ void sendNextion(void *pvParameters)
                 else if (datemod.error & ILEVEL_SENSOR::error::NOT_FOUND)
                 {
                     str = "ДУТ не найден\\rПроверте настройки и подключение ДУТ";
-                    // delete_lls();
                 }
                 else if (datemod.error & ILEVEL_SENSOR::error::LOST)
                 {
@@ -367,7 +373,6 @@ void sendNextion(void *pvParameters)
         }
 
         flag_HMI_send = !flag_HMI_send;
-
         vTaskDelay(pdMS_TO_TICKS(TIME_UPDATE_HMI));
     }
     vTaskDelete(NULL);
@@ -481,8 +486,8 @@ void exitTarring()
         if (tar->getTimePause() == 0)
             if (lls->getVecLevel()->size() == 0)
             {
-               delay(100);
-               return;
+                delay(100);
+                return;
             }
         // start_pause = millis() + TIME_PAUSE_END_TAR / 4;
         tar->saveResultRefuil(lls);
@@ -503,7 +508,6 @@ void updateLS(void *pvParameters)
         if (datemod.mode == MENU)
             lls_ATP->update();
 #endif
-
         if (datemod.mode == TAR || datemod.mode == PAUSE || datemod.mode == COUNT)
             if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
             {
@@ -574,12 +578,14 @@ void errors()
         }
     }
 
-    // проверка, что после 30 секунд после включения насоса скорость пролива не меньше 5л/мин
-    if (datemod.mode != PUMPINGAUTO)
+    // проверка, что через 30 секунд после включения насоса скорость пролива не меньше 5л/мин
+    if (datemod.controlFlowrate)
         if (pump->get() == ON && millis() > pump->getTimeStart() + 30000)
         {
             if (countV->getFlowRate() < 5)
                 error |= 1 << 6;
+            else
+                pump->setTimeStart();
         }
 
     if (error)
@@ -674,6 +680,7 @@ void onHMIEvent(String messege, String data, String response)
     else if (messege == "ag!")
     {
         lls = lls_analog_f;
+        digitalWrite(INDI_F_PIN_, HIGH);
         lls->search();
     }
 #endif
@@ -833,6 +840,14 @@ void onHMIEvent(String messege, String data, String response)
 
         datemod.error = 0;
         lls->clearError();
+    }
+
+    if (messege == "controlFlowrate")
+    {
+        if (data == "on")
+            datemod.controlFlowrate = true;
+        if (data == "off")
+            datemod.controlFlowrate = false;
     }
 }
 
@@ -1008,7 +1023,7 @@ void digitalpause()
 
     if (!flag_conect_ok)
         return;
-    
+
     uint32_t res = 0;
     for (auto vol : *lls->getVecLevel())
         res += vol;

@@ -52,6 +52,11 @@ public:
         return time_start_;
     }
 
+    void setTimeStart()
+    {
+         time_start_ = millis();
+    }
+
     // void setLlsStart(uint32_t l)
     // {
     //     lls_start_ = l;

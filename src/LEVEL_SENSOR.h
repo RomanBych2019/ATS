@@ -34,7 +34,7 @@ public:
     static const uint16_t MAX_ANALOGE_U = 2000; // максимальное напряжение на рабочем ДУТ (аналог, напряжение в 0.01 В)
 
     static const uint16_t MIN_ANALOGE_F = 20;   // минимальная частота на рабочем ДУТ (аналог, частота в Гц)
-    static const uint16_t MAX_ANALOGE_F = 3000; // максимальная частота на рабочем ДУТ (аналог, частота в Гц)
+    static const uint16_t MAX_ANALOGE_F = 5000; // максимальная частота на рабочем ДУТ (аналог, частота в Гц)
 
     static const uint16_t MIN_DIGITAL_N = 1;    // минимальное значение ДУТ RS485
     static const uint16_t MAX_DIGITAL_N = 4095; // максимальнoе значение ДУТ RS485

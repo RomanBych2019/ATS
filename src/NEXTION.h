@@ -28,8 +28,10 @@ private:
         uint16_t x_max_ = 787;
         uint16_t y_min_ = 50;
     } graph_;
+
 public:
-    NEXTION(SoftwareSerial &port) : _nextionSerial(&port) {
+    NEXTION(SoftwareSerial &port) : _nextionSerial(&port)
+    {
         ((SoftwareSerial *)_nextionSerial)->listen(); // Start software serial listen
     }
 
@@ -161,7 +163,7 @@ public:
         send("tar.j0.val", j0);
         send("tar.x3.val", x3);
         send("tar.t0.txt", t0);
-        send ("tar.t0.pco", flag_conect_ok?  38495: 63488); // цвет данных от ДУТ в завиимости от состояния связи с ДУТ
+        send("tar.t0.pco", flag_conect_ok ? 38495 : 63488); // цвет данных от ДУТ в завиимости от состояния связи с ДУТ
 
         if (t6 == 0)
         {
@@ -180,19 +182,22 @@ public:
     {
         if (!flag)
         {
-            send("t_end.t0.txt", t0);
-            uint x_old = map(n->at(0), 0, n->back(), graph_.x0_, graph_.x_max_);
-            uint y_old = map(v->at(0), 0, v->back(), graph_.y0_, graph_.y_min_);
-            send("cir " + String(x_old) + "," + String(y_old) + ",4,RED");
-
-            for (uint i = 1; i < v->size(); ++i)
+            for (int i = 0; i < 2; i++)
             {
-                uint x = map(n->at(i), 0, n->back(), graph_.x0_, graph_.x_max_);
-                uint y = map(v->at(i), 0, v->back(), graph_.y0_, graph_.y_min_);
-                send("line " + String(x_old) + "," + String(y_old) + "," + String(x) + "," + String(y) + ",RED");
-                send("cir " + String(x) + "," + String(y) + ",4,RED");
-                x_old = x;
-                y_old = y;
+                send("t_end.t0.txt", t0);
+                uint x_old = map(n->at(0), 0, n->back(), graph_.x0_, graph_.x_max_);
+                uint y_old = map(v->at(0), 0, v->back(), graph_.y0_, graph_.y_min_);
+                send("cir " + String(x_old) + "," + String(y_old) + ",4,RED");
+
+                for (uint i = 1; i < v->size(); ++i)
+                {
+                    uint x = map(n->at(i), 0, n->back(), graph_.x0_, graph_.x_max_);
+                    uint y = map(v->at(i), 0, v->back(), graph_.y0_, graph_.y_min_);
+                    send("line " + String(x_old) + "," + String(y_old) + "," + String(x) + "," + String(y) + ",RED");
+                    send("cir " + String(x) + "," + String(y) + ",4,RED");
+                    x_old = x;
+                    y_old = y;
+                }
             }
             flag = true;
         }
@@ -204,12 +209,13 @@ public:
     {
         if (!flag)
         {
-            send("t_end.t0.txt", t0);
+            for (int i = 0; i < 2; i++)
+                send("t_end.t0.txt", t0);
             flag = true;
         }
         // send("t_end.j0.val", j0);
     }
-//  данные на экране Поиск BLE
+    //  данные на экране Поиск BLE
     void sendScreenSearch_BLE(String const &t1) const
     {
         if (t1.endsWith("ДУТ не найден"))
@@ -265,72 +271,85 @@ private:
         String date{};
         count_ff = 0;
         bool charEquals = false;
+        bool flag66 = false;
         unsigned long startTime = millis();
 
+        std::vector<uint8_t> bufferHMI{};
         while (_nextionSerial->available())
         {
-            int inc = _nextionSerial->read();
-            response.concat(checkHex(inc) + " ");
-            if (inc == 0x23)
+            bufferHMI.push_back(_nextionSerial->read());
+            delayMicroseconds(1100);
+            // Serial.printf("%X | ", bufferHMI.back());
+        }
+
+        if (bufferHMI.size())
+            for (auto &inc : bufferHMI)
             {
-                messege.clear();
-                date.clear();
-                response.clear();
-                charEquals = false;
-            }
-            else if (inc == 0xff)
-            {
-                // response.clear();
-                count_ff++;
-            }
-            else if (inc == 0x66)
-            {
-                delay(1);
-                inc = _nextionSerial->read();
                 response.concat(checkHex(inc) + " ");
-                messege += String(inc, DEC);
-            }
-            else
-            {
-                if (inc <= MAX_ASCII && inc >= MIN_ASCII)
+                if (inc == 0x23)
                 {
-                    if (!charEquals)
+                    messege.clear();
+                    date.clear();
+                    response.clear();
+                    charEquals = false;
+                    flag66 = false;
+                }
+                else if (inc == 0xff)
+                {
+                    // response.clear();
+                    count_ff++;
+                }
+                else if (inc == 0x66)
+                {
+                    flag66 = true;
+                }
+                else
+                {
+                    if (flag66)
+                        messege += String(inc, DEC);
+                    if (inc <= MAX_ASCII && inc >= MIN_ASCII)
                     {
-                        if (char(inc) == '=')
+                        if (!charEquals)
                         {
-                            charEquals = true;
-                            date.clear();
+                            if (char(inc) == '=')
+                            {
+                                charEquals = true;
+                                date.clear();
+                            }
+                            else
+                            {
+                                messege += char(inc);
+                            }
                         }
                         else
                         {
-                            messege += char(inc);
+                            date += char(inc);
                         }
                     }
-                    else
-                    {
-                        date += char(inc);
-                    }
                 }
-            }
-            if (count_ff == 3 || inc == 0x0A)
-            {
-                if (_echo)
+                if (count_ff == 3 || inc == 0x0A)
                 {
-                    Serial.println("\nOnEvent : [ M : " + messege + " | D : " + date + " | R : " + response + " ]");
+                    if (_echo)
+                    {
+                        if (!flag66)
+                        {
+                            for (auto &d : bufferHMI)
+                            {
+                                Serial.printf("%X | ", d);
+                            }
+                            Serial.println("\nOnEvent : [ M : " + messege + " | D : " + date + " | R : " + response + " ]");
+                        }
+                    }
+                    listnerCallback(messege, date, response);
+                    messege.clear();
+                    response.clear();
+                    date.clear();
+                    count_ff = 0;
+                    flag66 = false;
+                    charEquals = false;
+                    // return;
                 }
-                listnerCallback(messege, date, response);
-                messege.clear();
-                response.clear();
-                date.clear();
-                count_ff = 0;
-                charEquals = false;
-                return;
             }
-            delay(1);
-            
-            if (millis() - startTime > CMD_READ_TIMEOUT)
-                return;
-        }
     }
 
     String convertStringTime_(long date)
