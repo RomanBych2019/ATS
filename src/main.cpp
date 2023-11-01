@@ -44,9 +44,7 @@ void setup()
     lls = lls_Empty;
 
     tank = new TANK(countV);
-
     tar = new TARRING(countV, tank);
-
     pump = new Out(OUT_PUMP);
 
     lls_RS485 = new LS_RS485(&serialLS, 1);
@@ -578,12 +576,15 @@ void errors()
         }
     }
 
-    // проверка, что через 30 секунд после включения насоса скорость пролива не меньше 5л/мин
+    // проверка, что 30 секунд скорость пролива меньше 2л/мин
     if (datemod.controlFlowrate)
-        if (pump->get() == ON && millis() > pump->getTimeStart() + 30000)
+        if (pump->get() == ON)
         {
-            if (countV->getFlowRate() < 5)
-                error |= 1 << 6;
+            if (countV->getFlowRate() < 2)
+            {
+                if (millis() > pump->getTimeStart() + 30000)
+                    error |= 1 << 6;
+            }
             else
                 pump->setTimeStart();
         }
@@ -782,7 +783,6 @@ void onHMIEvent(String messege, String data, String response)
     {
         if (data.toInt())
         {
-            // tar->setType(tarring::MANUAL);
             tar->setTimePause(data.toInt());
         }
         else
