@@ -64,10 +64,7 @@ public:
     // Listen For incoming callback event from HMI
     void listen()
     {
-        // xSemaphoreTake(nexton_mutex, portMAX_DELAY);
         handle();
-        // readNEXTION();
-        // xSemaphoreGive(nexton_mutex);
     }
 
     //  данные на экране Меню
@@ -333,10 +330,10 @@ private:
                     {
                         if (!flag66)
                         {
-                            for (auto &d : bufferHMI)
-                            {
-                                Serial.printf("%X | ", d);
-                            }
+                            // for (auto &d : bufferHMI)
+                            // {
+                            //     Serial.printf("%X | ", d);
+                            // }
                             Serial.println("\nOnEvent : [ M : " + messege + " | D : " + date + " | R : " + response + " ]");
                         }
                     }

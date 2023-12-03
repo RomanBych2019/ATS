@@ -64,11 +64,9 @@ public:
         oldest_ = recent_;
         recent_ = newest_;
         newest_ = val_;
-        median_ = median_of_3(oldest_, recent_, newest_);
-        if (median_ < 20)
-            level_ = 0;
-        else
-            level_ = constrain(map(median_, 145, 22330, 17, 1843), 0, MAX_ANALOGE_U);
+        // median_ = median_of_3(oldest_, recent_, newest_);
+        median_ = val_;
+        level_ = constrain(map(median_, 6127, 13408, 499, 1090), 0, MAX_ANALOGE_U);
         // Serial.printf("Analoge_U:  %d:   %d\n", val_, level_);
         setVLevel();
         set_error_();

@@ -84,7 +84,7 @@ void setup()
 
     xTaskCreatePinnedToCore(
         updateLS,        /* */
-        "Task_updateLS", /* Название задачи */
+        "Task_updateLS", /* Обновление данных от ДУТ */
         16364,           /* Размер стека задачи */
         NULL,            /* Параметр задачи */
         1,               /* Приоритет задачи */
@@ -94,7 +94,7 @@ void setup()
 #ifdef PRINTDEBUG
     xTaskCreatePinnedToCore(
         printDebugLog,        /*  */
-        "Task_printDebugLog", /* Название задачи */
+        "Task_printDebugLog", /* Печать отладочной информации*/
         4096,                 /* Размер стека задачи */
         NULL,                 /* Параметр задачи */
         3,                    /* Приоритет задачи */
@@ -578,6 +578,7 @@ void errors()
 
     // проверка, что 30 секунд скорость пролива меньше 2л/мин
     if (datemod.controlFlowrate)
+    {
         if (pump->get() == ON)
         {
             if (countV->getFlowRate() < 2)
@@ -588,7 +589,7 @@ void errors()
             else
                 pump->setTimeStart();
         }
-
+    }
     if (error)
     {
         // Serial.printf("\nErr: %d", error);
@@ -842,11 +843,11 @@ void onHMIEvent(String messege, String data, String response)
         lls->clearError();
     }
 
-    if (messege == "controlFlowrate")
+    if (messege == "contrFlowrate")
     {
-        if (data == "on")
+        if (data == "1")
             datemod.controlFlowrate = true;
-        if (data == "off")
+        if (data == "0")
             datemod.controlFlowrate = false;
     }
 }

@@ -107,7 +107,7 @@ const uint16_t TIME_UPDATE_HMI = 300;         // период обновлени
 const uint16_t TIME_UPDATE_SPEED_PUMP = 2000; // период обновления скорости потока
 const uint16_t TIME_PAUSE_END_TAR = 20000;    // пауза в конце тарировки для передаче данных в систему мониторинга
 
-unsigned long start_pause, worktime, time_start_refill, time_LLS_update;
+unsigned long start_pause, worktime, time_start_refill, time_LLS_update, time_stop_flow_rate;
 bool autostop = false;
 bool flag_HMI_send = false; 
 bool flag_conect_ok = true; // флаг удачного получения данных от ДУТ
