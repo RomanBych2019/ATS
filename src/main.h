@@ -1,7 +1,7 @@
 #pragma once
 
 // #define PRINTDEBUG
-#define verATP
+// #define verATP
 #define verAnalogInput
 
 #include <Arduino.h>

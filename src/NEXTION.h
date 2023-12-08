@@ -5,8 +5,8 @@
 // #include <string>
 #include "SoftwareSerial.h"
 
-#define CMD_READ_TIMEOUT 200
-#define READ_TIMEOUT 50
+#define CMD_READ_TIMEOUT 100
+#define READ_TIMEOUT 100
 
 #define MIN_ASCII 32
 #define MAX_ASCII 255
@@ -70,32 +70,32 @@ public:
     //  данные на экране Меню
     void sendScreenMenu(char const *ch, uint const n0, String const &v_atp, String const &t1, int const bt) const
     {
-        // send("menu.select0.val", bt);
-
-        switch (bt)
-        {
-        case 0:
-            send("menu.b5.picc", 1);
-            send("menu.b6.picc", 0);
-            send("menu.b7.picc", 0);
-            break;
-        case 1:
-            send("menu.b5.picc", 0);
-            send("menu.b6.picc", 1);
-            send("menu.b7.picc", 0);
-            break;
-        case 2:
-            send("menu.b5.picc", 0);
-            send("menu.b6.picc", 0);
-            send("menu.b7.picc", 1);
-            break;
-        default:
-            break;
-        }
+        /*
+                switch (bt)
+                {
+                case 0:
+                    send("menu.b5.picc", 1);
+                    send("menu.b6.picc", 0);
+                    send("menu.b7.picc", 0);
+                    break;
+                case 1:
+                    send("menu.b5.picc", 0);
+                    send("menu.b6.picc", 1);
+                    send("menu.b7.picc", 0);
+                    break;
+                case 2:
+                    send("menu.b5.picc", 0);
+                    send("menu.b6.picc", 0);
+                    send("menu.b7.picc", 1);
+                    break;
+                default:
+                    break;
+                }
+        */
         send("menu.t0.txt", ch);
         send("menu.t1.txt", t1);
-        send("calibr.n0.val", n0);
         send("menu.t2.txt", v_atp);
+        send("calibr.n0.val", n0);
     }
 
     //  данные на экране Автоматическая выдача топлива
@@ -148,7 +148,7 @@ public:
     }
 
     //  данные на экране Тарировка
-    void sendScreenTarring(uint32_t const x0, uint32_t const x1, uint n1, uint const n2, uint16_t const x3, String const &t0, uint16_t const t7, char const j0, uint16_t const t6, bool flag_conect_ok)
+    void sendScreenTarring(uint32_t const x0, uint32_t const x1, uint n1, uint const n2, uint16_t const x3, String const &t0, uint16_t const t7, char const j0, uint16_t const t6, bool doConnect)
     {
         send("tar.x0.val", x0);
         send("tar.x1.val", x1);
@@ -160,7 +160,7 @@ public:
         send("tar.j0.val", j0);
         send("tar.x3.val", x3);
         send("tar.t0.txt", t0);
-        send("tar.t0.pco", flag_conect_ok ? 38495 : 63488); // цвет данных от ДУТ в завиимости от состояния связи с ДУТ
+        send("tar.t0.pco", doConnect? 38495: 63488); // цвет данных от ДУТ в зависимости от состояния связи с ДУТ
 
         if (t6 == 0)
         {
@@ -249,16 +249,16 @@ private:
         _nextionSerial->write(0xff);
         _nextionSerial->write(0xff);
         _nextionSerial->write(0xff);
-        delay(1);
+        delay(5);
     }
 
     String checkHex(byte currentNo)
     {
-        if (currentNo < 10)
+        if (currentNo < 16)
         {
-            return "0x" + String(currentNo, HEX);
+            return "0x0" + String(currentNo, HEX);
         }
-        return String(currentNo, HEX);
+        return "0x" + String(currentNo, HEX);
     }
 
     void handle()

@@ -89,7 +89,7 @@ void setup()
         NULL,            /* Параметр задачи */
         1,               /* Приоритет задачи */
         NULL,            /* Идентификатор задачи, чтобы ее можно было отслеживать */
-        1);              /* Ядро для выполнения задачи (0) */
+        0);              /* Ядро для выполнения задачи (0) */
 
 #ifdef PRINTDEBUG
     xTaskCreatePinnedToCore(
@@ -281,7 +281,7 @@ void sendNextion(void *pvParameters)
                 if (tmp_time_pause > tar->getTimePause() * 60)
                     tmp_time_pause = tar->getTimePause() * 60;
 
-                hmi.sendScreenTarring(tar->getVfuel() - tar->getBackRefill(), tar->getVfuel(), tar->getCountReffil(), tar->getNumRefill() - tar->getCountReffil(), countV->getFlowRate(), str, tar->getTimeTarring(), level, tmp_time_pause, flag_conect_ok);
+                hmi.sendScreenTarring(tar->getVfuel() - tar->getBackRefill(), tar->getVfuel(), tar->getCountReffil(), tar->getNumRefill() - tar->getCountReffil(), countV->getFlowRate(), str, tar->getTimeTarring(), level, tmp_time_pause, lls->getDoConnect());
                 break;
 
             case MESSAGE:
@@ -509,7 +509,7 @@ void updateLS(void *pvParameters)
         if (datemod.mode == TAR || datemod.mode == PAUSE || datemod.mode == COUNT)
             if (lls->getType() != ILEVEL_SENSOR::NO_LLS)
             {
-                flag_conect_ok = lls->update();
+                lls->update();
                 // test();
                 digitalWrite(GPIO_NUM_2, ON);
                 delay(10);
@@ -1079,7 +1079,7 @@ String makeLlsDateToDisplay(ILEVEL_SENSOR *_lls)
             if (_lls->getError() == ILEVEL_SENSOR::error::NOT_FOUND)
                 return "ДУТ не найден!";
             else
-                return _lls->getNameBLE() + ch + "RSSI:" + String(_lls->getRSSI()) + ch + "N=" + String(_lls->getLevel());
+                return _lls->getNameBLE() + ch + "RSSI: " + String(_lls->getRSSI()) + ch + "N=" + String(_lls->getLevel());
         }
 #ifdef verAnalogInput
         else if (_lls->getType() == ILEVEL_SENSOR::ANALOGE_U)

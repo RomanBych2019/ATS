@@ -62,7 +62,7 @@ public:
         CLIFF,         // обрыв
         CLOSURE,       // замыкание
         NOT_FOUND = 4, // ДУТ не найден
-        LOST = 8       // ДУТ потерян
+        LOST = 8,       // ДУТ потерян
     };
 
     const uint16_t getLevel() const
@@ -164,6 +164,11 @@ public:
     {
         error_ = NO_ERROR;
         counter_errror_ = 0;
+    }
+
+    bool getDoConnect()
+    {
+        return true;
     }
 
 

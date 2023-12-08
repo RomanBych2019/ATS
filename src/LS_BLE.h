@@ -170,7 +170,7 @@ public:
             return false;
 
         if (BLEScan_->isScanning())
-            return false;
+            return true;
 
         doConnect_ = false;
         if (_echo)
@@ -190,6 +190,11 @@ public:
             buildData((uint8_t *)DataBLE.data(), DataBLE.length());
             level_ = getDataBLE(0);
             setVLevel();
+            _doConnect = true;
+        }
+        else
+        {
+            _doConnect = false;
         }
         set_error_();
         BLEScan_->clearResults(); // delete results fromBLEScan buffer to release memory
@@ -205,6 +210,11 @@ public:
     void echoEnabled(bool echoEnabled)
     {
         _echo = echoEnabled;
+    }
+    
+    bool getDoConnect()
+    {
+        return _doConnect;
     }
 
     ~LS_BLE(){
