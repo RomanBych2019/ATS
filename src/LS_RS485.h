@@ -96,7 +96,7 @@ public:
         // Serial.print("\n  - Create rs485 \n");
 
         type_ = ILEVEL_SENSOR::RS485;
-        level_start_ = MIN_ANALOGE_RS485_START;
+        level_start_ = MAX_ANALOGE_RS485_START;
     }
 
     void setNetadress(int netadress) override

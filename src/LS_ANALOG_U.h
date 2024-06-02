@@ -42,14 +42,14 @@ public:
     {
         pinMode(GPIO_, INPUT);
         type_ = ILEVEL_SENSOR::ANALOGE_U;
-        level_start_ = MIN_ANALOGE_U_START;
+        level_start_ = MAX_ANALOGE_U_START;
         // Serial.printf("\n  - Create Analoge_U, level_start: %d", level_start_);
     }
 
     LS_ANALOG_U(Adafruit_ADS1115 &ads, const int num_ads = 1) : ads_(ads), num_ads_(num_ads) // конструктор для каналов ADC
     {
         type_ = ILEVEL_SENSOR::ANALOGE_U;
-        level_start_ = MIN_ANALOGE_U_START;
+        level_start_ = MAX_ANALOGE_U_START;
         // Serial.printf("\n  - Create Analoge_U, level_start: %d", level_start_);
     }
 

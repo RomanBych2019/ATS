@@ -42,10 +42,10 @@ public:
     static const uint16_t MIN_DIGITAL_B = 1;    // минимальное значение ДУТ BLE
     static const uint16_t MAX_DIGITAL_B = 4095; // максимальнoе значение ДУТ BLE
 
-    static const uint16_t MIN_ANALOGE_U_START = 100;     // минимальное напряжение для начала тарировки (аналог, напряжение в 0.01 В)
-    static const uint16_t MIN_ANALOGE_F_START = 2000;    // минимальное напряжение для начала тарировки (аналог, частота в Гц)
-    static const uint16_t MIN_ANALOGE_RS485_START = 100; // минимальное напряжение для начала тарировки (RS485)
-    static const uint16_t MIN_ANALOGE_BLE_START = 100;   // минимальное напряжение для начала тарировки (BLE)
+    static const uint16_t MAX_ANALOGE_U_START = 100;     // максимальное напряжение для начала тарировки (аналог, напряжение в 0.01 В)
+    static const uint16_t MAX_ANALOGE_F_START = 2000;    // максимальная частота для начала тарировки (аналог, частота в Гц)
+    static const uint16_t MAX_ANALOGE_RS485_START = 100; // максимальное значение для начала тарировки (RS485)
+    static const uint16_t MAX_ANALOGE_BLE_START = 100;   // максимальное значение для начала тарировки (BLE)
 
     enum type
     {

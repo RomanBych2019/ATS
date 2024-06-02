@@ -87,7 +87,7 @@ public:
     {
         // Serial.print("\n  - Create BLE\n");
         type_ = ILEVEL_SENSOR::BLE_ESKORT;
-        level_start_ = MIN_ANALOGE_BLE_START;
+        level_start_ = MAX_ANALOGE_BLE_START;
         clearError();
         nameBLE_ls = "";
 

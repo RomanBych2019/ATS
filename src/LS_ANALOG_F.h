@@ -81,7 +81,7 @@ public:
             10,
             &update_Frequence_,
             1);
-        level_start_ = MIN_ANALOGE_F_START;
+        level_start_ = MAX_ANALOGE_F_START;
     }
 
     // обновление показаний
